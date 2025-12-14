@@ -19,8 +19,18 @@
   }
 }
 
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #000;
+  color: #fff;
+}
+
+body.dark {
+  background-color: #fff;
+  color: #000;
+}
+
+.fade-out {
+  opacity: 0;
+  transition: opacity 0.5s ease;
 }
