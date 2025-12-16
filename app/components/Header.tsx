@@ -51,7 +51,7 @@ export default function Header() {
       
       {/* Left: Name */}
 
-    <img src="/Bro_Linkedin.ico" alt="" width={50} height={50} rounded-full/>
+    <img src="https://raw.githubusercontent.com/Mohammed2006bh/WEB-HMS/refs/heads/main/public/Bro_LinkedIn.ico" alt="" width={50} height={50} rounded-full/>
       <h1 className="text-lg font-semibold">
         Mohamed <span className="font-bold">Alhayki</span>
       </h1>
