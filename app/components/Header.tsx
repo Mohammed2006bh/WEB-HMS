@@ -51,7 +51,7 @@ export default function Header() {
       
       {/* Left: Name */}
 
-    <img src="https://raw.githubusercontent.com/Mohammed2006bh/WEB-HMS/refs/heads/main/public/Bro_LinkedIn.ico" alt="" width={50} height={50} rounded-full/>
+    <img src="https://raw.githubusercontent.com/Mohammed2006bh/WEB-HMS/refs/heads/main/public/Bro_LinkedIn.ico" alt="" width={50} height={50} rounded-full="true"/>
       <h1 className="text-lg font-semibold">
         Mohamed <span className="font-bold">Alhayki</span>
       </h1>
@@ -61,6 +61,7 @@ export default function Header() {
         {navLink("/", "Home")}
         {navLink("/tech", "My Tech")}
         {navLink("/blog", "Blog")}
+        {navLink("/BroSum", "My Notes")}
         {navLink("/HMSAi", "HMS Ai")}
       </nav>
 

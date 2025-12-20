@@ -22,20 +22,11 @@ export default function Home() {
       <SBody>
       <main className="max-w-3xl mx-auto p-8">
         <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-2">Bro keep up with the latest things</h2>
+          <h2 className="text-2xl font-semibold mb-2">Keep up with Bro latest things</h2>
         </section>
 
-        <section>
-          <p className="mb-4">
-            Check out my latest on{" "}
-            <a
-              href="https://www.youtube.com/@mohamedalhayki-h3i"
-              target="_blank"
-              className="text-red-500 underline"
-            >
-              YouTube
-            </a>
-          </p>
+        <section className="mb-8">
+          <h3 className="text-lg font-semibold mb-2">here is my channel</h3>
 
           <div className="aspect-video">
             <iframe

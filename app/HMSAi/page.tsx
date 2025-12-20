@@ -5,6 +5,7 @@ export default function Home() {
   return (
     <>
 <SBody>
+    
       <main className="max-w-3xl mx-auto p-8">
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-2">HMSAi</h2>
