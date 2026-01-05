@@ -1,3 +1,7 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+
 "use client";
 
 import Editor from "@monaco-editor/react";
