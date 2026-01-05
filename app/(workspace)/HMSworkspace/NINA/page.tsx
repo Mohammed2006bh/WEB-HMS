@@ -2,9 +2,9 @@
 
 import Editor from "@monaco-editor/react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
-export default function NinaWorkspace() {
+function NinaWorkspaceInner() {
   /* ========= URL PARAMS ========= */
   const searchParams = useSearchParams();
 
@@ -36,7 +36,7 @@ export default function NinaWorkspace() {
 
   /* ========= SAVE FILE ========= */
   const saveFile = async () => {
-    await fetch("/api/project-file", {
+    const res = await fetch("/api/project-file", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -45,7 +45,8 @@ export default function NinaWorkspace() {
         content: code,
       }),
     });
-    setSaved(true);
+
+    if (res.ok) setSaved(true);
   };
 
   /* ========= RESIZE ========= */
@@ -75,15 +76,13 @@ export default function NinaWorkspace() {
     window.addEventListener("mouseup", onUp);
   };
 
-  /* ========= UI ========= */
   return (
     <main className="min-h-screen bg-black text-white flex flex-col">
 
-      {/* ================= TOP TOOLBAR ================= */}
+      {/* Toolbar */}
       <header className="h-12 flex items-center justify-between px-4 border-b border-zinc-800">
         <div className="flex items-center gap-3">
           <button onClick={() => setShowLeft(!showLeft)}>☰</button>
-
           <input
             placeholder="Search"
             className="bg-zinc-900 px-3 py-1 rounded-md text-sm outline-none"
@@ -108,10 +107,9 @@ export default function NinaWorkspace() {
         </div>
       </header>
 
-      {/* ================= WORKSPACE ================= */}
+      {/* Workspace */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ========== LEFT SIDEBAR ========= */}
         {showLeft && (
           <>
             <aside
@@ -119,8 +117,8 @@ export default function NinaWorkspace() {
               className="bg-zinc-900 border-r border-zinc-800 p-4 text-sm"
             >
               <h2 className="text-zinc-400 mb-3">PROJECT FILES</h2>
-              <ul className="space-y-2">
-                <li className="text-white">{fileName}</li>
+              <ul>
+                <li>{fileName}</li>
               </ul>
             </aside>
 
@@ -131,15 +129,14 @@ export default function NinaWorkspace() {
           </>
         )}
 
-        {/* ========== EDITOR ========= */}
         <section className="flex-1">
           <Editor
             height="100%"
             theme="vs-dark"
             language={language}
             value={code}
-            onChange={(val) => {
-              setCode(val || "");
+            onChange={(v) => {
+              setCode(v || "");
               setSaved(false);
             }}
             options={{
@@ -151,7 +148,6 @@ export default function NinaWorkspace() {
           />
         </section>
 
-        {/* ========== RIGHT NINA AI ========= */}
         {showRight && (
           <>
             <div
@@ -164,18 +160,19 @@ export default function NinaWorkspace() {
               className="bg-zinc-900 border-l border-zinc-800 p-4 text-sm"
             >
               <h2 className="text-zinc-400 mb-3">NINA AI</h2>
-
-              <p>Hello.</p>
-              <p className="text-zinc-500 mt-2">
-                Project: <span className="text-white">{projectName}</span>
-              </p>
-              <p className="text-zinc-500">
-                File: <span className="text-white">{fileName}</span>
-              </p>
+              <p>Project: {projectName}</p>
             </aside>
           </>
         )}
       </div>
     </main>
+  );
+}
+
+export default function NinaWorkspace() {
+  return (
+    <Suspense fallback={<div className="text-white p-6">Loading NINA…</div>}>
+      <NinaWorkspaceInner />
+    </Suspense>
   );
 }
