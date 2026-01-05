@@ -1,4 +1,4 @@
-import SBody from '../components/SBody';
+import SBody from '../../components/SBody';
 
 
 export default function Home() {

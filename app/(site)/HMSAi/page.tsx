@@ -1,4 +1,4 @@
-import SBody from '../components/SBody';
+import SBody from '@/app/components/SBody';
 
 
 export default function Home() {
@@ -26,9 +26,6 @@ export default function Home() {
 
             <input type="text" placeholder="type a question" className="border border-gray-300 rounded-md p-2 w-full mb-4" />
         </section>
-
-
-
 
       </main>
       </SBody>

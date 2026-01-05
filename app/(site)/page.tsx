@@ -1,5 +1,5 @@
-import SBody from "./components/SBody";
-import TypingText from "./components/TypingText";
+import SBody from "@/app/components/SBody";
+import TypingText from "@/app/components/TypingText";
 
 export default function Home() {
   return (

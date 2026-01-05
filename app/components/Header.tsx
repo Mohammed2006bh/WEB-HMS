@@ -8,6 +8,9 @@ export default function Header() {
   const [dark, setDark] = useState(false);
   const pathname = usePathname();
 
+  // ===== Triple click state =====
+  const [clickCount, setClickCount] = useState(0);
+
   // تحميل الثيم
   useEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -16,6 +19,14 @@ export default function Header() {
       setDark(true);
     }
   }, []);
+
+  // مراقبة عدد النقرات على الصورة
+  useEffect(() => {
+    if (clickCount === 3) {
+      window.open("/HMSworkspace", "_blank");
+      setClickCount(0);
+    }
+  }, [clickCount]);
 
   // تبديل الثيم
   const toggleTheme = () => {
@@ -27,6 +38,15 @@ export default function Header() {
       localStorage.setItem("theme", "dark");
     }
     setDark(!dark);
+  };
+
+  // عند الضغط على الصورة
+  const handleImageClick = () => {
+    setClickCount((prev) => prev + 1);
+
+    setTimeout(() => {
+      setClickCount(0);
+    }, 600);
   };
 
   const navLink = (href: string, label: string) => {
@@ -48,13 +68,21 @@ export default function Header() {
   return (
     <header className="site-header mx-[55px] mt-6 flex items-center justify-between transition-all duration-500">
       
-      
-      {/* Left: Name */}
+      {/* Left: Logo + Name */}
+      <div className="flex items-center gap-3">
+        <img
+          src="https://raw.githubusercontent.com/Mohammed2006bh/WEB-HMS/refs/heads/main/public/Bro_LinkedIn.ico"
+          alt="HMS Logo"
+          width={50}
+          height={50}
+          onClick={handleImageClick}
+          className="cursor-pointer rounded-full"
+        />
 
-    <img src="https://raw.githubusercontent.com/Mohammed2006bh/WEB-HMS/refs/heads/main/public/Bro_LinkedIn.ico" alt="" width={50} height={50} rounded-full="true"/>
-      <h1 className="text-lg font-semibold">
-        Mohamed <span className="font-bold">Alhayki</span>
-      </h1>
+        <h1 className="text-lg font-semibold">
+          Mohamed <span className="font-bold">Alhayki</span>
+        </h1>
+      </div>
 
       {/* Center: Navigation */}
       <nav className="flex gap-2">
