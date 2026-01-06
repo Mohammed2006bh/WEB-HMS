@@ -23,7 +23,7 @@ const notes = {
   ITSE201: [
     {
       name: "Limits Summary",
-      url: "/MyNotes/ITSE201/M-summary.pdf",
+      url: "/Mynotes/ITSE201/M-summary.pdf",
     },
   ],
 };
