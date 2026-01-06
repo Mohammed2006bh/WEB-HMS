@@ -20,6 +20,12 @@ const notes = {
       url: "/MyNotes/MATH101/limits-summary.pdf",
     },
   ],
+  ITSE201: [
+    {
+      name: "Limits Summary",
+      url: "/MyNotes/ITSE201/M-summary.pdf",
+    },
+  ],
 };
 
 export default function MyNotes() {
@@ -31,6 +37,11 @@ export default function MyNotes() {
   };
 
   return (
+    <>
+        <h1 className="text-3xl font-bold underline">
+          Bro use a dark mode for a batter experience
+        </h1>
+
     <SBody>
       <div className="flex h-[80vh] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
 
@@ -101,5 +112,6 @@ export default function MyNotes() {
 
       </div>
     </SBody>
+    </>
   );
 }
