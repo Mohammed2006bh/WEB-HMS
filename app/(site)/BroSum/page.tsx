@@ -7,17 +7,17 @@ const notes = {
   ITCS214: [
     {
       name: "Chapter 1 – Linked Lists",
-      url: "https://onedrive.live.com/embed?resid=XXXX",
+      url: "/MyNotes/ITCS214/chapter1-linked-lists.pdf",
     },
     {
       name: "Chapter 2 – Trees",
-      url: "https://onedrive.live.com/embed?resid=YYYY",
+      url: "/MyNotes/ITCS214/chapter2-trees.pdf",
     },
   ],
   MATH101: [
     {
       name: "Limits Summary",
-      url: "https://drive.google.com/file/d/ZZZZ/preview",
+      url: "/MyNotes/MATH101/limits-summary.pdf",
     },
   ],
 };
@@ -32,7 +32,7 @@ export default function MyNotes() {
 
   return (
     <SBody>
-      <div className="flex h-full border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+      <div className="flex h-[80vh] border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden">
 
         {/* Sidebar */}
         <aside className="w-64 bg-zinc-100 dark:bg-zinc-900 p-4 overflow-y-auto">
@@ -42,6 +42,7 @@ export default function MyNotes() {
 
           {Object.entries(notes).map(([subject, files]) => (
             <div key={subject} className="mb-3">
+
               {/* Folder */}
               <button
                 onClick={() => toggleFolder(subject)}
@@ -89,7 +90,7 @@ export default function MyNotes() {
             <iframe
               src={activePdf}
               className="w-full h-full"
-              allow="autoplay"
+              title="PDF Preview"
             />
           ) : (
             <div className="h-full flex items-center justify-center text-zinc-400 dark:text-zinc-600">
