@@ -1,1 +1,18 @@
 M1,M2,M3
+
+
+
+<img
+  src="/HMS_logo.png"
+  alt="HMS Logo"
+  className="
+    absolute
+    top-[calc(50%-130px)]
+    left-1/2
+    -translate-x-1/2
+    w-[336px]
+    opacity-95
+    drop-shadow-2xl
+    transition-transform duration-300
+  "
+/>

@@ -4,20 +4,10 @@ import SBody from "@/app/components/SBody";
 import { useState } from "react";
 
 const notes = {
-  ITCS214: [
-    {
-      name: "Chapter 1 – Linked Lists",
-      url: "/MyNotes/ITCS214/chapter1-linked-lists.pdf",
-    },
-    {
-      name: "Chapter 2 – Trees",
-      url: "/MyNotes/ITCS214/chapter2-trees.pdf",
-    },
-  ],
-  MATH101: [
+  Chemistry101: [
     {
       name: "Limits Summary",
-      url: "/MyNotes/MATH101/limits-summary.pdf",
+      url: "/MyNotes/CHEM101/M-summary.pdf",
     },
   ],
   ITSE201: [
@@ -38,7 +28,7 @@ export default function MyNotes() {
 
   return (
     <>
-        <h1 className="text-3xl font-bold underline">
+        <h1 className="text-3xl font-bold underline text-center">
           Bro use a dark mode for a batter experience
         </h1>
 
