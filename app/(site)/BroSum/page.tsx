@@ -7,7 +7,7 @@ const notes = {
   "Chemistry101": [
     {
       name: "Limits Summary",
-      url: "/MyNotes/CHEM101/CH101.pdf",
+      url: "/Mynotes/CHEM101/CH101.pdf",
     },
   ],
   "ITSE201": [
@@ -19,7 +19,7 @@ const notes = {
   "IBMZ/OS": [
     {
       name: "Limits Summary",
-      url: "/MyNotes/IBMZOS/IBMZOS.pdf",
+      url: "/Mynotes/IBMZOS/IBMZOS.pdf",
     },
   ]
 };
