@@ -1,14 +1,9 @@
 🧠 My own Personal Portfolio & Notes Hub 🚀
 
-⚙️ Next.js | ⚛️ React | 🏷️ Version v1.0.0
-
-
-
+⚙️ Next.js | ⚛️ React | 🏷️ Version v1.5.7
 
 ==================================================
-🌐 Live Access
-To access the project:
-👉 https://m-project-hms.blog
+🌐 Live Access 👉 https://m-project-hms.blog
 ==================================================
 
 ✨ A modern personal website built with Next.js that serves two purposes:
