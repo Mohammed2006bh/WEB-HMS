@@ -4,18 +4,24 @@ import SBody from "@/app/components/SBody";
 import { useState } from "react";
 
 const notes = {
-  Chemistry101: [
+  "Chemistry101": [
     {
       name: "Limits Summary",
       url: "/MyNotes/CHEM101/M-summary.pdf",
     },
   ],
-  ITSE201: [
+  "ITSE201": [
     {
       name: "Limits Summary",
       url: "/Mynotes/ITSE201/M-summary.pdf",
     },
   ],
+  "IBMZ/OS": [
+    {
+      name: "Limits Summary",
+      url: "/MyNotes/IBMZOS/M-summary.pdf",
+    },
+  ]
 };
 
 export default function MyNotes() {
