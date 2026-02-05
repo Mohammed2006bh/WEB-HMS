@@ -29,6 +29,7 @@
 ==================================================
 🏗️ ARCHITECTURE OVERVIEW
 
+```text
 👤 User (Browser)
       |
       v
@@ -53,6 +54,7 @@
       v
 🌐 API Layer
 (route.ts endpoints)
+```
 
 ==================================================
 📁 PROJECT STRUCTURE (REAL STRUCTURE)
