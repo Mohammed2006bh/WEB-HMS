@@ -142,7 +142,7 @@ This reflects a **clean separation of concerns** and non-monolithic page design.
 
 - 💾 Theme preference stored in localStorage
 - 🔄 Automatically restored on page load
-- 📱 Smooth UX similar to native applications
+- 📱 Smooth UX similar to native applications [Just on pc/laptop]
 
 ==================================================
 🧩 HMS WORKSPACE (HIDDEN FEATURE) 🕵️‍♂️
