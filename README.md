@@ -1,4 +1,4 @@
-🧠 Personal Portfolio & Notes Hub 🚀
+🧠 My own Personal Portfolio & Notes Hub 🚀
 
 ⚙️ Next.js | ⚛️ React | 🏷️ Version v1.0.0 | 📄 MIT License
 
@@ -136,5 +136,5 @@ If the timing and clicks are correct, the HMS Workspace is unlocked 🔓
 👨‍💻 AUTHOR
 
 Mohamed Alhayki  
-🎓 Software Engineering Student  
+🎓 {Mental} Software Engineering Student  
 🛠️ Building systems with long-term vision, not just pages.
