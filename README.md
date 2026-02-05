@@ -1,24 +1,31 @@
 🧠 My own Personal Portfolio & Notes Hub 🚀
 
-⚙️ Next.js | ⚛️ React | 🏷️ Version v1.0.0 | 📄 MIT License
+⚙️ Next.js | ⚛️ React | 🏷️ Version v1.0.0
 
+==================================================
+🌐 Live Access
+To access the project:
+👉 https://m-project-hms.blog
 ==================================================
 
 ✨ A modern personal website built with Next.js that serves two purposes:
-1️⃣ A clean portfolio showcasing my engineering mindset  
-2️⃣ A practical notes hub for organizing and accessing university materials  
 
-🎯 This project is designed with scalability, simplicity, and real-world software architecture principles in mind.
+1️⃣ A clean **personal portfolio** showcasing my engineering mindset  
+2️⃣ A practical **notes hub & workspace system** for organizing projects and university materials  
+
+🎯 This project is designed with scalability, structure, and real-world software architecture principles in mind.
 
 ==================================================
 🧰 TECH STACK
 
 - ⚙️ Next.js (App Router)
 - ⚛️ React
-- 🟨 JavaScript (ES6+)
+- 🟨 TypeScript / JavaScript (ES6+)
 - 🧩 Client Components
 - 💾 Local Storage
-- 🎨 CSS / Modern UI practices
+- 🌐 API Routes
+- 🎨 CSS (globals.css)
+- ☁️ Vercel-ready deployment
 
 ==================================================
 🏗️ ARCHITECTURE OVERVIEW
@@ -29,58 +36,105 @@
 🧭 Next.js App Router
       |
       v
-🧩 Client Components
-(Header, Notes Viewer, Theme Toggle)
+🧩 Layouts & Pages
+(site / workspace separation)
+      |
+      v
+🧠 Core Components Layer
+(Header, Footer, SBody, TypingText)
       |
       v
 🔁 State Management
 (useState, useEffect, localStorage)
       |
       v
-🗂️ Static Data Layer
-(notes object)
+🗂️ Static Data & Assets
+(PDF notes, icons, media)
       |
       v
-📂 Public Assets
-(PDF files)
+🌐 API Layer
+(route.ts endpoints)
 
 ==================================================
-📁 PROJECT STRUCTURE
+📁 PROJECT STRUCTURE (REAL STRUCTURE)
 
-/app
-  /page.tsx          ➜ Home page
-  /notes/page.tsx    ➜ Notes page
-
-/components
-  Header.tsx         ➜ Navigation + Theme toggle
-  NotesViewer.tsx   ➜ Dynamic notes renderer
-
-/public
-  /MyNotes
-    /CHEM101
-    /ITSE201
-    *.pdf
+HMS-PORTFOLIO
+│
+├── app
+│   ├── (site)
+│   │   ├── page.tsx                ➜ Main landing page
+│   │   ├── blog/
+│   │   │   └── page.tsx            ➜ Blog section
+│   │   ├── BroSum/
+│   │   │   └── page.tsx            ➜ Summary / profile section
+│   │   ├── HMSAi/
+│   │   │   └── page.tsx            ➜ AI-related showcase
+│   │   ├── tech/
+│   │   │   └── page.tsx            ➜ Tech stack & experiments
+│   │   └── layout.tsx              ➜ Site-wide layout
+│   │
+│   ├── (workspace)
+│   │   ├── HMSworkspace/
+│   │   │   ├── create/
+│   │   │   │   └── page.tsx        ➜ Workspace project creation
+│   │   │   └── join/
+│   │   │       └── page.tsx        ➜ Join existing workspace
+│   │   └── NINA/
+│   │       ├── layout.tsx          ➜ Workspace layout
+│   │       └── page.tsx            ➜ Internal workspace page
+│   │
+│   ├── api
+│   │   ├── create-project/
+│   │   │   └── route.ts            ➜ Create project API
+│   │   ├── project-file/
+│   │   │   └── route.ts            ➜ Project file handler
+│   │   └── test-kv/
+│   │       └── route.ts            ➜ KV / backend testing
+│
+├── components
+│   ├── Header.tsx                  ➜ Navigation + theme control
+│   ├── Footer.tsx                  ➜ Footer layout
+│   ├── SBody.tsx                   ➜ Core structured body component
+│   └── TypingText.tsx              ➜ Animated typing text
+│
+├── public
+│   ├── NINAProjects                ➜ The place where all nina projects saves
+│   │
+│   ├── Mynotes
+│   │   ├── CHEM101/
+│   │   │   └── CH101.pdf
+│   │   ├── IBMZOS/
+│   │   │   └── IBMZOS.pdf
+│   │   └── ITSE201/
+│   │       └── SE201.pdf
+│   │
+│   ├── HMS_logo.png
+│   ├── Bro_LinkedIn.ico
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   ├── window.svg
+│   └── PINS.csv
+│
+├── globals.css
+├── package.json
+├── tsconfig.json
+├── next.config.ts
+├── README.md
+└── .env.local
 
 ==================================================
-📚 NOTES SYSTEM
+🧠 CORE COMPONENT: SBody
 
-All study materials are managed through a centralized data object 🧠
+`SBody.tsx` acts as the **central structural component** of the UI.
 
-Example:
+- 🧱 Responsible for layout composition
+- 🔗 Connects internal sections
+- 🧠 Separates page entry logic from visual structure
+- ♻️ Reusable across pages
 
-const notes = {
-  Chemistry101: [
-    {
-      name: "Limits Summary",
-      url: "/MyNotes/CHEM101/M-summary.pdf",
-    },
-  ],
-};
-
-🤔 Why this approach?
-- ❌ No hardcoded UI
-- ➕ Easy to add/remove materials
-- 🧠 Acts as a mini data layer inside the frontend
+This reflects a **clean separation of concerns** and non-monolithic page design.
 
 ==================================================
 🌙 DARK / LIGHT MODE
@@ -92,45 +146,36 @@ const notes = {
 ==================================================
 🧩 HMS WORKSPACE (HIDDEN FEATURE) 🕵️‍♂️
 
-The project includes a hidden workspace mode called HMS Workspace,  
-designed as a private area for development, experiments, and internal tools.
+The project includes a **hidden workspace mode** called **HMS Workspace**.
 
 🔓 HOW TO ACCESS:
 - 🖱️ Click on the profile image
 - 🔢 3 consecutive clicks
 - ⏱️ Within 0.6 seconds
 
-If the timing and clicks are correct, the HMS Workspace is unlocked 🔓
-
-🎯 WHY HMS WORKSPACE?
-- 🔒 Keeps internal tools separate from the public UI
-- 🧠 Adds intentional access without authentication
-- 🧑‍💻 Reflects an engineer mindset
-- 🚀 Allows future expansion
-
-⚙️ TECHNICAL CONCEPT:
-- 🖱️ Client-side click detection logic
-- ⏱️ Timing-based validation (≤ 600ms)
-- 🚫 No backend or authentication required
-- 🧪 Extendable to dashboards, admin tools, experiments
+🎯 PURPOSE:
+- 🔒 Internal tools separation
+- 🧠 Intentional access without authentication
+- 🧪 Experimental & admin features
+- 🚀 Future expansion ready
 
 ==================================================
 🎯 KEY DESIGN GOALS
 
-- ✨ Clean and readable code
-- 🧱 Scalable structure
-- 🪶 No unnecessary complexity
+- ✨ Clean, readable, and scalable code
+- 🧱 Strong architectural separation
 - 🧠 Engineer-first mindset
-- 🔌 Easy future backend integration
+- 🚀 Production-ready structure
+- 🔌 Backend & API extensibility
 
 ==================================================
 🔮 FUTURE IMPROVEMENTS
 
-- 🔍 Search & filtering for notes
-- 🔐 Authentication system
-- 🧑‍💼 Admin panel for uploading materials
-- 🗄️ Backend API & database
-- 📊 Analytics dashboard
+- 🔍 Advanced search & filtering
+- 🔐 Authentication & roles
+- 🧑‍💼 Admin dashboard
+- 🗄️ Database integration
+- 📊 Analytics & logging
 
 ==================================================
 👨‍💻 AUTHOR
