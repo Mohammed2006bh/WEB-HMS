@@ -19,7 +19,7 @@ const notes = {
   "IBMZ/OS": [
     {
       name: "Limits Summary",
-      url: "/MyNotes/IBMZOS/M-summary.pdf",
+      url: "/MyNotes/IBMZOS/SE201.pdf",
     },
   ]
 };
