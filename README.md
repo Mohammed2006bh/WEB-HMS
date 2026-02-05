@@ -61,7 +61,7 @@ To access the project:
 ==================================================
 📁 PROJECT STRUCTURE (REAL STRUCTURE)
 
-'''text
+```text
 HMS-PORTFOLIO
 │
 ├── app
@@ -127,7 +127,7 @@ HMS-PORTFOLIO
 ├── next.config.ts
 ├── README.md
 └── .env.local
-'''
+```
 
 ==================================================
 🧠 CORE COMPONENT: SBody
