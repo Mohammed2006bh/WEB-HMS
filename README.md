@@ -160,6 +160,7 @@ The project includes a **hidden workspace mode** called **HMS Workspace**.
 - 🧪 Experimental & admin features
 - 🚀 Future expansion ready
 
+☕︎ In Progress [it is not fully operational yet]
 ==================================================
 🎯 KEY DESIGN GOALS
 
