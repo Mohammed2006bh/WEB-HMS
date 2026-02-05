@@ -189,3 +189,4 @@ The project includes a **hidden workspace mode** called **HMS Workspace**.
 Mohamed Alhayki  
 🎓 {Mental} Software Engineering Student  
 🛠️ Building systems with long-term vision, not just pages.
+[fine i will think about that 🤣]
