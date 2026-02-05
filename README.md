@@ -2,6 +2,9 @@
 
 ⚙️ Next.js | ⚛️ React | 🏷️ Version v1.0.0
 
+
+
+
 ==================================================
 🌐 Live Access
 To access the project:
