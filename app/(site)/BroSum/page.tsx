@@ -4,6 +4,12 @@ import SBody from "@/app/components/SBody";
 import { useState } from "react";
 
 const notes = {
+  "ITCE101": [
+    {
+      name: "Limits Summary",
+      url: "/Mynotes/ITCE101/CE101.pdf",
+    },
+  ],
   "Chemistry101": [
     {
       name: "Limits Summary",
