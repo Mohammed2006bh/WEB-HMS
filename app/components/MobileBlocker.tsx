@@ -134,16 +134,57 @@ export default function MobileBlocker() {
   if (!mounted) return null;
 
   // ================= HEART OVERLAY =================
-  const HeartOverlay = () => (
-    <div className="fixed bottom-6 right-6 z-[9998] pointer-events-none">
-      <div className="w-12 h-12 rounded-full bg-green-500/20 backdrop-blur-md 
-                      flex items-center justify-center 
-                      shadow-[0_0_20px_#22c55e] 
-                      animate-heartPulse">
+const HeartOverlay = () => {
+  const [messages, setMessages] = useState<string[]>([]);
+  const [hovered, setHovered] = useState(false);
+  const [randomMessage, setRandomMessage] = useState("");
+
+  useEffect(() => {
+    fetch("/messages.csv")
+      .then((res) => res.text())
+      .then((text) => {
+        const rows = text.split("\n").slice(1); // skip header
+        const cleaned = rows
+          .map((row) => row.trim())
+          .filter((row) => row.length > 0);
+        setMessages(cleaned);
+      });
+  }, []);
+
+  const handleHover = () => {
+    if (messages.length > 0) {
+      const random =
+        messages[Math.floor(Math.random() * messages.length)];
+      setRandomMessage(random);
+    }
+    setHovered(true);
+  };
+
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-[9998]"
+      onMouseEnter={handleHover}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Message Bubble */}
+      {hovered && randomMessage && (
+        <div className="absolute bottom-16 right-0 w-64 bg-black/90 border border-green-500 p-4 rounded-lg text-sm text-green-300 shadow-[0_0_15px_#22c55e] animate-fadeIn">
+          {randomMessage}
+        </div>
+      )}
+
+      {/* Heart */}
+      <div
+        className="w-12 h-12 rounded-full bg-green-500/20 backdrop-blur-md 
+                   flex items-center justify-center 
+                   shadow-[0_0_20px_#22c55e] 
+                   animate-heartPulse cursor-pointer"
+      >
         <span className="text-green-400 text-xl">💚</span>
       </div>
     </div>
   );
+};
 
   if (!bypass && matchResult) {
     return (
