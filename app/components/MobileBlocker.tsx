@@ -9,8 +9,9 @@ export default function MobileBlocker() {
   const [confirmed, setConfirmed] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [displayConfidence, setDisplayConfidence] = useState("");
+  const [confidence, setConfidence] = useState(0);
   const [confidenceDone, setConfidenceDone] = useState(false);
+  const [deviceInfo, setDeviceInfo] = useState<any>(null);
 
   useEffect(() => {
     const detect = () => {
@@ -21,9 +22,27 @@ export default function MobileBlocker() {
       const isTouch = navigator.maxTouchPoints > 0;
 
       const devices = [
-        { name: "S24 Ultra", width: 568, dpr: 3, aspect: 0.46, isTouch: true },
-        { name: "iPad Pro 11 M2", width: 1194, dpr: 2, aspect: 0.8, isTouch: true },
-        { name: "MacBook Air", width: 1427, dpr: 2, aspect: 0.6, isTouch: false },
+        {
+          name: "📱 S24 Ultra",
+          width: 568,
+          dpr: 3,
+          aspect: 0.46,
+          ratioLabel: "19.5:9 (~2.16)"
+        },
+        {
+          name: "📱 iPad Pro 11 M2",
+          width: 1194,
+          dpr: 2,
+          aspect: 0.8,
+          ratioLabel: "~1.43"
+        },
+        {
+          name: "💻 MacBook Air",
+          width: 1427,
+          dpr: 2,
+          aspect: 0.6,
+          ratioLabel: "~1.6"
+        }
       ];
 
       let bestMatch = null;
@@ -34,18 +53,22 @@ export default function MobileBlocker() {
         if (width === device.width) score += 40;
         if (Math.abs(dpr - device.dpr) < 0.5) score += 25;
         if (Math.abs(aspect - device.aspect) < 0.1) score += 20;
-        if (isTouch === device.isTouch) score += 15;
 
         if (score > highestScore) {
           highestScore = score;
-          bestMatch = device.name;
+          bestMatch = device;
         }
       });
 
-      if (highestScore >= 70) {
+      if (highestScore >= 60 && bestMatch) {
         setMatchResult({
-          name: bestMatch,
-          confidence: highestScore.toFixed(1),
+          device: bestMatch,
+        });
+
+        setDeviceInfo({
+          width,
+          dpr,
+          aspect,
         });
       }
     };
@@ -64,7 +87,7 @@ export default function MobileBlocker() {
       "Reading device entropy...",
       "Verifying DPR signature...",
       "Matching aspect ratio...",
-      "Calculating confidence score..."
+      "Generating confidence index..."
     ];
 
     let i = 0;
@@ -76,44 +99,42 @@ export default function MobileBlocker() {
         clearInterval(interval);
         setScanning(true);
       }
-    }, 400);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [confirmed, matchResult]);
 
-  // Hacker Typing Confidence
+  // Smooth Confidence 0 → 96
   useEffect(() => {
-    if (!scanning || !matchResult) return;
+    if (!scanning) return;
 
-    const finalValue = matchResult.confidence + "%";
-    let current = "";
-    let index = 0;
+    let start = 0;
+    const end = 96;
+    const duration = 2200; // سلس
+    const stepTime = 25;
+    const increment = end / (duration / stepTime);
 
-    const typeInterval = setInterval(() => {
-      current += finalValue[index];
-      setDisplayConfidence(current);
-      index++;
-
-      if (index >= finalValue.length) {
-        clearInterval(typeInterval);
+    const counter = setInterval(() => {
+      start += increment;
+      if (start >= end) {
+        start = end;
+        clearInterval(counter);
         setConfidenceDone(true);
       }
-    }, 120);
+      setConfidence(Math.floor(start));
+    }, stepTime);
 
-    return () => clearInterval(typeInterval);
-  }, [scanning, matchResult]);
+    return () => clearInterval(counter);
+  }, [scanning]);
 
   if (!mounted || bypass || !matchResult) return null;
 
   return (
-    <div
-         className="fixed inset-0 z-[9999] flex items-center justify-center 
-             text-green-400 font-mono overflow-hidden
-             bg-black/95 backdrop-blur-md
-             transition-opacity duration-500 ease-in-out
-             opacity-100 animate-overlayFade"
-    >
-      {/* Binary Rain */}
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center 
+                    text-green-400 font-mono overflow-hidden
+                    bg-black/95 backdrop-blur-md
+                    animate-overlayFade">
+
       <div className="binary-rain"></div>
 
       <div className="relative bg-black/90 border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
@@ -126,6 +147,14 @@ export default function MobileBlocker() {
           <>
             <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-6">
               Mohamed Device Signature Detected ✔
+            </div>
+
+            {/* Device Info */}
+            <div className="text-xs text-green-400 mb-6 text-left space-y-1">
+              <p>Device: {matchResult.device.name}</p>
+              <p>Width: {deviceInfo?.width}px</p>
+              <p>DPR: {deviceInfo?.dpr}</p>
+              <p>Aspect: {deviceInfo?.aspect}</p>
             </div>
 
             <button
@@ -143,19 +172,13 @@ export default function MobileBlocker() {
           <>
             <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-32 overflow-hidden">
               {logs.map((log, idx) => (
-                <p key={idx}>
-                  &gt; {log}
-                </p>
+                <p key={idx}>&gt; {log}</p>
               ))}
             </div>
 
             {scanning && (
-              <p
-                className={`text-sm mt-2 ${
-                  confidenceDone ? "text-green-300 font-bold glow" : ""
-                }`}
-              >
-                Signature match confidence: {displayConfidence}
+              <p className={`text-sm mt-2 ${confidenceDone ? "glow text-green-300 font-bold" : ""}`}>
+                Signature match confidence: {confidence}%
                 {!confidenceDone && <span className="blink">▌</span>}
               </p>
             )}
