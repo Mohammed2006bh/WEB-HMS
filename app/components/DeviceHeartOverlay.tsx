@@ -7,7 +7,7 @@ export default function DeviceHeartOverlay() {
                       flex items-center justify-center 
                       shadow-[0_0_20px_#22c55e] 
                       animate-heartPulse">
-        <span className="text-green-400 text-xl">💚</span>
+        <span className="text-green-400 text-xl text-center">💚</span>
       </div>
     </div>
   );
