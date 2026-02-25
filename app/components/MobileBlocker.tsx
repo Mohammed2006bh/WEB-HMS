@@ -15,10 +15,17 @@ export default function MobileBlocker() {
     }
 
     const checkScreen = () => {
-      const currentWidth = window.innerWidth;
-      setWidth(currentWidth);
-      setIsPhone(currentWidth < 768);
-    };
+        const currentWidth = window.innerWidth;
+        const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+      
+        setWidth(currentWidth);
+      
+        if (currentWidth < 900 && isTouch) {
+          setIsPhone(true);
+        } else {
+          setIsPhone(false);
+        }
+      };
 
     checkScreen();
     setMounted(true);
@@ -32,7 +39,7 @@ export default function MobileBlocker() {
     setAllowed(true);
   };
 
-  if (!mounted || allowed || !isPhone) return null;
+  if (!mounted || allowed) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center text-green-400 font-mono transition-opacity duration-500 animate-fadeIn">
@@ -43,7 +50,7 @@ export default function MobileBlocker() {
         </h1>
 
         <p className="text-sm text-green-300 mb-4">
-          Device width detected: {width}px
+            Device width detected: {width}px
         </p>
 
         <p className="text-sm text-green-500 mb-6">
