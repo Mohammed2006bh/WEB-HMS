@@ -132,10 +132,11 @@ body.dark .body-container {
 .binary-rain {
   position: absolute;
   inset: 0;
+  opacity: 0.15; /* أخف */
   background-image: repeating-linear-gradient(
     0deg,
-    rgba(34,197,94,0.05) 0px,
-    rgba(34,197,94,0.05) 2px,
+    rgba(34,197,94,0.15) 0px,
+    rgba(34,197,94,0.15) 2px,
     transparent 2px,
     transparent 20px
   );
@@ -146,15 +147,6 @@ body.dark .body-container {
 @keyframes rain {
   from { background-position-y: 0; }
   to { background-position-y: 200px; }
-}
-
-/* Cursor Blink */
-.blink {
-  animation: blink 1s step-end infinite;
-}
-
-@keyframes blink {
-  50% { opacity: 0; }
 }
 
 /* Glow when 100% */
@@ -174,4 +166,21 @@ body.dark .body-container {
 
 .animate-overlayFade {
   animation: overlayFade 0.4s ease-out forwards;
+}
+
+/* Cursor Blink */
+.blink {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+.ultra-glow {
+  text-shadow:
+    0 0 10px #22c55e,
+    0 0 20px #22c55e,
+    0 0 40px #22c55e,
+    0 0 80px #22c55e;
 }

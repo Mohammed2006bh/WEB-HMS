@@ -7,12 +7,13 @@ export default function MobileBlocker() {
   const [bypass, setBypass] = useState(false);
   const [matchResult, setMatchResult] = useState<any>(null);
   const [confirmed, setConfirmed] = useState(false);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<any[]>([]);
   const [scanning, setScanning] = useState(false);
   const [confidence, setConfidence] = useState(0);
   const [confidenceDone, setConfidenceDone] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
 
+  // Device Detection
   useEffect(() => {
     const detect = () => {
       const width = window.innerWidth;
@@ -22,27 +23,9 @@ export default function MobileBlocker() {
       const isTouch = navigator.maxTouchPoints > 0;
 
       const devices = [
-        {
-          name: "📱 S24 Ultra",
-          width: 568,
-          dpr: 3,
-          aspect: 0.46,
-          ratioLabel: "19.5:9 (~2.16)"
-        },
-        {
-          name: "📱 iPad Pro 11 M2",
-          width: 1194,
-          dpr: 2,
-          aspect: 0.8,
-          ratioLabel: "~1.43"
-        },
-        {
-          name: "💻 MacBook Air",
-          width: 1427,
-          dpr: 2,
-          aspect: 0.6,
-          ratioLabel: "~1.6"
-        }
+        { name: "📱 S24 Ultra", width: 568, dpr: 3, aspect: 0.46 },
+        { name: "📱 iPad Pro 11 inch", width: 1194, dpr: 2, aspect: 0.8 },
+        { name: "💻 MacBook Air", width: 1427, dpr: 2, aspect: 0.6 }
       ];
 
       let bestMatch = null;
@@ -61,14 +44,13 @@ export default function MobileBlocker() {
       });
 
       if (highestScore >= 60 && bestMatch) {
-        setMatchResult({
-          device: bestMatch,
-        });
+        setMatchResult({ device: bestMatch });
 
         setDeviceInfo({
           width,
           dpr,
           aspect,
+          isTouch
         });
       }
     };
@@ -77,17 +59,22 @@ export default function MobileBlocker() {
     setMounted(true);
   }, []);
 
-  // Fake Logs
+  // Fake Logs + Touch Status
   useEffect(() => {
-    if (!confirmed || !matchResult) return;
+    if (!confirmed || !matchResult || !deviceInfo) return;
 
     const fakeLogs = [
-      "Initializing secure channel...",
-      "Accessing Mohamed Core System...",
-      "Reading device entropy...",
-      "Verifying DPR signature...",
-      "Matching aspect ratio...",
-      "Generating confidence index..."
+      { text: "Initializing secure channel..." },
+      { text: "Accessing Mohamed Core System..." },
+      { text: "Reading device entropy..." },
+      {
+        text: `Touch capability detected: ${
+          deviceInfo.isTouch ? "TRUE" : "FALSE"
+        }`,
+        type: deviceInfo.isTouch ? "true" : "false"
+      },
+      { text: "Verifying DPR signature..." },
+      { text: "Generating confidence index..." }
     ];
 
     let i = 0;
@@ -95,52 +82,74 @@ export default function MobileBlocker() {
     const interval = setInterval(() => {
       setLogs((prev) => [...prev, fakeLogs[i]]);
       i++;
+
       if (i >= fakeLogs.length) {
         clearInterval(interval);
-        setScanning(true);
+        setTimeout(() => setScanning(true), 500);
       }
     }, 500);
 
     return () => clearInterval(interval);
-  }, [confirmed, matchResult]);
+  }, [confirmed, matchResult, deviceInfo]);
 
-  // Smooth Confidence 0 → 96
+  // Glitch Jump 0 → 96 → glitch → 100
   useEffect(() => {
     if (!scanning) return;
 
-    let start = 0;
-    const end = 96;
-    const duration = 2200; // سلس
-    const stepTime = 25;
-    const increment = end / (duration / stepTime);
+    let value = 0;
 
-    const counter = setInterval(() => {
-      start += increment;
-      if (start >= end) {
-        start = end;
-        clearInterval(counter);
-        setConfidenceDone(true);
+    const interval = setInterval(() => {
+      value += Math.random() * 4;
+
+      if (value >= 96) {
+        value = 96;
+        clearInterval(interval);
+        setConfidence(96);
+        glitchSequence();
+      } else {
+        setConfidence(Math.floor(value));
       }
-      setConfidence(Math.floor(start));
-    }, stepTime);
+    }, 40 + Math.random() * 30);
 
-    return () => clearInterval(counter);
+    return () => clearInterval(interval);
   }, [scanning]);
+
+  const glitchSequence = () => {
+    let glitchCount = 0;
+
+    const glitchInterval = setInterval(() => {
+      setConfidence(96);
+      glitchCount++;
+
+      if (glitchCount === 3) {
+        clearInterval(glitchInterval);
+
+        setLogs((prev) => [
+          ...prev,
+          { text: "— recalibrating entropy —" }
+        ]);
+
+        setTimeout(() => {
+          setConfidence(100);
+          setConfidenceDone(true);
+        }, 900);
+      }
+    }, 200);
+  };
 
   if (!mounted || bypass || !matchResult) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center 
                     text-green-400 font-mono overflow-hidden
-                    bg-black/95 backdrop-blur-md
-                    animate-overlayFade">
+                    bg-black/95 backdrop-blur-md animate-overlayFade">
 
       <div className="binary-rain"></div>
 
       <div className="relative bg-black/90 border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
 
         <h1 className="text-xl mb-4 tracking-widest">
-          HMS ULTRA CYBER ACCESS v6
+          HMS ULTRA CYBER ACCESS v7
         </h1>
 
         {!confirmed && (
@@ -149,7 +158,6 @@ export default function MobileBlocker() {
               Mohamed Device Signature Detected ✔
             </div>
 
-            {/* Device Info */}
             <div className="text-xs text-green-400 mb-6 text-left space-y-1">
               <p>Device: {matchResult.device.name}</p>
               <p>Width: {deviceInfo?.width}px</p>
@@ -170,14 +178,33 @@ export default function MobileBlocker() {
 
         {confirmed && (
           <>
-            <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-32 overflow-hidden">
+            <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-36 overflow-hidden">
               {logs.map((log, idx) => (
-                <p key={idx}>&gt; {log}</p>
+                <p key={idx}>
+                  &gt;{" "}
+                  <span
+                    className={
+                      log.type === "true"
+                        ? "text-green-300 font-bold glow"
+                        : log.type === "false"
+                        ? "text-red-400"
+                        : ""
+                    }
+                  >
+                    {log.text}
+                  </span>
+                </p>
               ))}
             </div>
 
             {scanning && (
-              <p className={`text-sm mt-2 ${confidenceDone ? "glow text-green-300 font-bold" : ""}`}>
+              <p
+                className={`text-sm mt-2 transition-all duration-300 ${
+                  confidence === 100
+                    ? "text-green-300 font-bold ultra-glow"
+                    : ""
+                }`}
+              >
                 Signature match confidence: {confidence}%
                 {!confidenceDone && <span className="blink">▌</span>}
               </p>
@@ -188,7 +215,7 @@ export default function MobileBlocker() {
                 onClick={() => setBypass(true)}
                 className="mt-6 border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg shadow-[0_0_20px_#22c55e] transition-all duration-500"
               >
-                Mohamed Device Signature Verified →
+                You're Using The Same Device That I Use →
               </button>
             )}
           </>
