@@ -184,3 +184,22 @@ body.dark .body-container {
     0 0 40px #22c55e,
     0 0 80px #22c55e;
 }
+
+@keyframes heartPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 10px #22c55e;
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 25px #22c55e;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 10px #22c55e;
+  }
+}
+
+.animate-heartPulse {
+  animation: heartPulse 2.2s ease-in-out infinite;
+}

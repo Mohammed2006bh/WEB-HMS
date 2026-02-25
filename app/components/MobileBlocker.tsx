@@ -12,6 +12,7 @@ export default function MobileBlocker() {
   const [confidence, setConfidence] = useState(0);
   const [confidenceDone, setConfidenceDone] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
+  const [showHeart, setShowHeart] = useState(false);
 
   // Device Detection
   useEffect(() => {
@@ -45,13 +46,7 @@ export default function MobileBlocker() {
 
       if (highestScore >= 60 && bestMatch) {
         setMatchResult({ device: bestMatch });
-
-        setDeviceInfo({
-          width,
-          dpr,
-          aspect,
-          isTouch
-        });
+        setDeviceInfo({ width, dpr, aspect, isTouch });
       }
     };
 
@@ -59,7 +54,7 @@ export default function MobileBlocker() {
     setMounted(true);
   }, []);
 
-  // Fake Logs + Touch Status
+  // Fake Logs
   useEffect(() => {
     if (!confirmed || !matchResult || !deviceInfo) return;
 
@@ -82,7 +77,6 @@ export default function MobileBlocker() {
     const interval = setInterval(() => {
       setLogs((prev) => [...prev, fakeLogs[i]]);
       i++;
-
       if (i >= fakeLogs.length) {
         clearInterval(interval);
         setTimeout(() => setScanning(true), 500);
@@ -92,7 +86,7 @@ export default function MobileBlocker() {
     return () => clearInterval(interval);
   }, [confirmed, matchResult, deviceInfo]);
 
-  // Glitch Jump 0 → 96 → glitch → 100
+  // Confidence Glitch Jump
   useEffect(() => {
     if (!scanning) return;
 
@@ -137,90 +131,107 @@ export default function MobileBlocker() {
     }, 200);
   };
 
-  if (!mounted || bypass || !matchResult) return null;
+  if (!mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center 
-                    text-green-400 font-mono overflow-hidden
-                    bg-black/95 backdrop-blur-md animate-overlayFade">
-
-      <div className="binary-rain"></div>
-
-      <div className="relative bg-black/90 border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
-
-        <h1 className="text-xl mb-4 tracking-widest">
-          HMS ULTRA CYBER ACCESS v7
-        </h1>
-
-        {!confirmed && (
-          <>
-            <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-6">
-              Mohamed Device Signature Detected ✔
-            </div>
-
-            <div className="text-xs text-green-400 mb-6 text-left space-y-1">
-              <p>Device: {matchResult.device.name}</p>
-              <p>Width: {deviceInfo?.width}px</p>
-              <p>DPR: {deviceInfo?.dpr}</p>
-              <p>Aspect: {deviceInfo?.aspect}</p>
-            </div>
-
-            <button
-              onClick={() => setConfirmed(true)}
-              className="border border-green-500 px-4 py-2 rounded-lg 
-                         hover:bg-green-500 hover:text-black 
-                         transition-all duration-300 hover:scale-105"
-            >
-              Confirm Identity
-            </button>
-          </>
-        )}
-
-        {confirmed && (
-          <>
-            <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-36 overflow-hidden">
-              {logs.map((log, idx) => (
-                <p key={idx}>
-                  &gt;{" "}
-                  <span
-                    className={
-                      log.type === "true"
-                        ? "text-green-300 font-bold glow"
-                        : log.type === "false"
-                        ? "text-red-400"
-                        : ""
-                    }
-                  >
-                    {log.text}
-                  </span>
-                </p>
-              ))}
-            </div>
-
-            {scanning && (
-              <p
-                className={`text-sm mt-2 transition-all duration-300 ${
-                  confidence === 100
-                    ? "text-green-300 font-bold ultra-glow"
-                    : ""
-                }`}
-              >
-                Signature match confidence: {confidence}%
-                {!confidenceDone && <span className="blink">▌</span>}
-              </p>
-            )}
-
-            {confidenceDone && (
-              <button
-                onClick={() => setBypass(true)}
-                className="mt-6 border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg shadow-[0_0_20px_#22c55e] transition-all duration-500"
-              >
-                You're Using The Same Device That I Use →
-              </button>
-            )}
-          </>
-        )}
+  // ================= HEART OVERLAY =================
+  const HeartOverlay = () => (
+    <div className="fixed bottom-6 right-6 z-[9998] pointer-events-none">
+      <div className="w-12 h-12 rounded-full bg-green-500/20 backdrop-blur-md 
+                      flex items-center justify-center 
+                      shadow-[0_0_20px_#22c55e] 
+                      animate-heartPulse">
+        <span className="text-green-400 text-xl">💚</span>
       </div>
     </div>
+  );
+
+  if (!bypass && matchResult) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center 
+                      text-green-400 font-mono overflow-hidden
+                      bg-black/95 backdrop-blur-md animate-overlayFade">
+
+        <div className="relative bg-black/90 border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
+
+          <h1 className="text-xl mb-4 tracking-widest">
+            HMS M-ACCESS v8
+          </h1>
+
+          {!confirmed && (
+            <>
+              <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-6">
+                Mohamed Device Signature Detected ✔
+              </div>
+
+              <button
+                onClick={() => setConfirmed(true)}
+                className="border border-green-500 px-4 py-2 rounded-lg 
+                           hover:bg-green-500 hover:text-black 
+                           transition-all duration-300 hover:scale-105"
+              >
+                Confirm Identity
+              </button>
+            </>
+          )}
+
+          {confirmed && (
+            <>
+              <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-36 overflow-hidden">
+              {logs.map((log: any, idx) => {
+                        if (!log) return null;
+
+                            return (
+                              <p key={idx}>
+                                  &gt;{" "}
+                                  <span className={
+                                    log?.type === "true"
+                                    ? "text-green-300 font-bold glow"
+                                    : log?.type === "false"
+                                    ? "text-red-400"
+                                    : ""
+                    }
+                 >
+                  {log?.text}
+                 </span>
+                 </p>
+                );
+            })}
+              </div>
+
+              {scanning && (
+                <p
+                  className={`text-sm mt-2 transition-all duration-300 ${
+                    confidence === 100
+                      ? "text-green-300 font-bold ultra-glow"
+                      : ""
+                  }`}
+                >
+                  Signature match confidence: {confidence}%
+                  {!confidenceDone && <span className="blink">▌</span>}
+                </p>
+              )}
+
+              {confidenceDone && (
+                <button
+                  onClick={() => {
+                    setBypass(true);
+                    setShowHeart(true);
+                  }}
+                  className="mt-6 border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg shadow-[0_0_20px_#22c55e]"
+                >
+                  You're Using The Same Device That I Use →
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {showHeart && <HeartOverlay />}
+    </>
   );
 }
