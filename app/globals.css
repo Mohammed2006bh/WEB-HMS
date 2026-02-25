@@ -111,3 +111,52 @@ body.dark .body-container {
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out forwards;
 }
+
+/* Grid Pulse */
+.cyber-grid {
+  background-image:
+    linear-gradient(rgba(34,197,94,0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,197,94,0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridPulse 3s ease-in-out infinite;
+}
+
+@keyframes gridPulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+  100% { opacity: 0.4; }
+}
+
+/* Binary Rain */
+.binary-rain {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(34,197,94,0.05) 0px,
+    rgba(34,197,94,0.05) 2px,
+    transparent 2px,
+    transparent 20px
+  );
+  animation: rain 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rain {
+  from { background-position-y: 0; }
+  to { background-position-y: 200px; }
+}
+
+/* Cursor Blink */
+.blink {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Glow when 100% */
+.glow {
+  text-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+}

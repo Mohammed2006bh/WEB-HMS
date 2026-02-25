@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 
 export default function MobileBlocker() {
   const [mounted, setMounted] = useState(false);
-  const [isPhone, setIsPhone] = useState(false);
   const [bypass, setBypass] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
-  const [deviceData, setDeviceData] = useState<any>(null);
   const [matchResult, setMatchResult] = useState<any>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [scanning, setScanning] = useState(false);
+  const [displayConfidence, setDisplayConfidence] = useState("");
+  const [confidenceDone, setConfidenceDone] = useState(false);
 
   useEffect(() => {
     const detect = () => {
@@ -18,36 +20,10 @@ export default function MobileBlocker() {
       const aspect = +(width / height).toFixed(2);
       const isTouch = navigator.maxTouchPoints > 0;
 
-      const fingerprint = btoa(
-        `${width}-${height}-${dpr}-${aspect}-${isTouch}`
-      ).slice(0, 16);
-
-      const current = { width, height, dpr, aspect, isTouch, fingerprint };
-      setDeviceData(current);
-
-      // Mohamed Device Profiles
       const devices = [
-        {
-          name: "S24 Ultra",
-          width: 568,
-          dpr: 3,
-          aspect: 0.46,
-          isTouch: true,
-        },
-        {
-          name: "iPad Pro 11 M2",
-          width: 1194,
-          dpr: 2,
-          aspect: 0.8,
-          isTouch: true,
-        },
-        {
-          name: "MacBook Air",
-          width: 1427,
-          dpr: 2,
-          aspect: 0.6,
-          isTouch: false,
-        },
+        { name: "S24 Ultra", width: 568, dpr: 3, aspect: 0.46, isTouch: true },
+        { name: "iPad Pro 11 M2", width: 1194, dpr: 2, aspect: 0.8, isTouch: true },
+        { name: "MacBook Air", width: 1427, dpr: 2, aspect: 0.6, isTouch: false },
       ];
 
       let bestMatch = null;
@@ -55,7 +31,6 @@ export default function MobileBlocker() {
 
       devices.forEach((device) => {
         let score = 0;
-
         if (width === device.width) score += 40;
         if (Math.abs(dpr - device.dpr) < 0.5) score += 25;
         if (Math.abs(aspect - device.aspect) < 0.1) score += 20;
@@ -67,91 +42,129 @@ export default function MobileBlocker() {
         }
       });
 
-      if (highestScore > 60) {
+      if (highestScore >= 70) {
         setMatchResult({
           name: bestMatch,
           confidence: highestScore.toFixed(1),
         });
-      } else {
-        setMatchResult(null);
       }
-
-      if (isTouch && width < 900) setIsPhone(true);
-      else setIsPhone(false);
     };
 
     detect();
     setMounted(true);
-
-    window.addEventListener("resize", detect);
-    return () => window.removeEventListener("resize", detect);
   }, []);
 
-  if (!mounted || bypass || !isPhone) return null;
+  // Fake Logs
+  useEffect(() => {
+    if (!confirmed || !matchResult) return;
+
+    const fakeLogs = [
+      "Initializing secure channel...",
+      "Accessing Mohamed Core System...",
+      "Reading device entropy...",
+      "Verifying DPR signature...",
+      "Matching aspect ratio...",
+      "Calculating confidence score..."
+    ];
+
+    let i = 0;
+
+    const interval = setInterval(() => {
+      setLogs((prev) => [...prev, fakeLogs[i]]);
+      i++;
+      if (i >= fakeLogs.length) {
+        clearInterval(interval);
+        setScanning(true);
+      }
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [confirmed, matchResult]);
+
+  // Hacker Typing Confidence
+  useEffect(() => {
+    if (!scanning || !matchResult) return;
+
+    const finalValue = matchResult.confidence + "%";
+    let current = "";
+    let index = 0;
+
+    const typeInterval = setInterval(() => {
+      current += finalValue[index];
+      setDisplayConfidence(current);
+      index++;
+
+      if (index >= finalValue.length) {
+        clearInterval(typeInterval);
+        setConfidenceDone(true);
+      }
+    }, 120);
+
+    return () => clearInterval(typeInterval);
+  }, [scanning, matchResult]);
+
+  if (!mounted || bypass || !matchResult) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center text-green-400 font-mono animate-fadeIn">
-      <div className="bg-black border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
+    <div className="fixed inset-0 z-[9999] bg-black cyber-grid flex items-center justify-center text-green-400 font-mono overflow-hidden">
+
+      {/* Binary Rain */}
+      <div className="binary-rain"></div>
+
+      <div className="relative bg-black/90 border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
 
         <h1 className="text-xl mb-4 tracking-widest">
-          HMS ELITE FINGERPRINT ENGINE v4
+          HMS ULTRA CYBER ACCESS v6
         </h1>
 
-        {deviceData && (
-          <div className="text-xs text-green-500 mb-4 text-left space-y-1">
-            <p>Width: {deviceData.width}</p>
-            <p>DPR: {deviceData.dpr}</p>
-            <p>Aspect: {deviceData.aspect}</p>
-            <p>Touch: {deviceData.isTouch ? "Yes" : "No"}</p>
-            <p>Fingerprint ID: {deviceData.fingerprint}</p>
-          </div>
-        )}
+        {!confirmed && (
+          <>
+            <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-6">
+              Mohamed Device Signature Detected ✔
+            </div>
 
-        {matchResult && !confirmed && (
-          <div className="mb-6">
-            <p className="text-sm mb-3">
-              Device Signature Match Detected 😏
-            </p>
-            <p className="text-xs mb-3">
-              Confidence: {matchResult.confidence}%
-            </p>
             <button
               onClick={() => setConfirmed(true)}
-              className="border border-green-500 px-4 py-2 rounded-lg hover:bg-green-500 hover:text-black transition-all duration-300"
+              className="border border-green-500 px-4 py-2 rounded-lg 
+                         hover:bg-green-500 hover:text-black 
+                         transition-all duration-300 hover:scale-105"
             >
               Confirm Identity
             </button>
-          </div>
+          </>
         )}
 
-        {confirmed && matchResult && (
-          <div className="mb-6">
-            <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-3">
-              Mohamed Device Signature Verified ✔
+        {confirmed && (
+          <>
+            <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-32 overflow-hidden">
+              {logs.map((log, idx) => (
+                <p key={idx}>
+                  &gt; {log}
+                </p>
+              ))}
             </div>
 
-            <p className="text-xs text-green-400">
-              You are using the same device ({matchResult.name}) as Mohamed.
-            </p>
+            {scanning && (
+              <p
+                className={`text-sm mt-2 ${
+                  confidenceDone ? "text-green-300 font-bold glow" : ""
+                }`}
+              >
+                Signature match confidence: {displayConfidence}
+                {!confidenceDone && <span className="blink">▌</span>}
+              </p>
+            )}
 
-            <p className="text-xs text-green-400 mt-2">
-              Signature match confidence: {matchResult.confidence}%
-            </p>
-          </div>
+            {confidenceDone && (
+              <button
+                onClick={() => setBypass(true)}
+                className="mt-6 border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg shadow-[0_0_20px_#22c55e] transition-all duration-500"
+              >
+                Mohamed Device Signature Verified →
+              </button>
+            )}
+          </>
         )}
-
-        {!confirmed && (
-          <button
-            onClick={() => setBypass(true)}
-            className="border border-green-500 px-4 py-2 rounded-lg hover:bg-green-500 hover:text-black transition-all duration-300"
-          >
-            Continue Anyway →
-          </button>
-        )}
-
-        <p className="text-xs text-green-700 mt-6">
-          HMS Hybrid Protection Layer v4
-        </p>
       </div>
     </div>
   );
