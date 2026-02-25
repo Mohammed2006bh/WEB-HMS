@@ -13,8 +13,9 @@ export default function MobileBlocker() {
   const [confidenceDone, setConfidenceDone] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [showHeart, setShowHeart] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Device Detection
+  // ================= DEVICE DETECTION =================
   useEffect(() => {
     const detect = () => {
       const width = window.innerWidth;
@@ -22,6 +23,9 @@ export default function MobileBlocker() {
       const dpr = window.devicePixelRatio;
       const aspect = +(width / height).toFixed(2);
       const isTouch = navigator.maxTouchPoints > 0;
+
+      const mobileCheck = isTouch && width < 900;
+      setIsMobile(mobileCheck);
 
       const devices = [
         { name: "📱 S24 Ultra", width: 568, dpr: 3, aspect: 0.46 },
@@ -54,7 +58,7 @@ export default function MobileBlocker() {
     setMounted(true);
   }, []);
 
-  // Fake Logs
+  // ================= SIGNATURE LOGS =================
   useEffect(() => {
     if (!confirmed || !matchResult || !deviceInfo) return;
 
@@ -86,7 +90,7 @@ export default function MobileBlocker() {
     return () => clearInterval(interval);
   }, [confirmed, matchResult, deviceInfo]);
 
-  // Confidence Glitch Jump
+  // ================= CONFIDENCE GLITCH =================
   useEffect(() => {
     if (!scanning) return;
 
@@ -134,58 +138,85 @@ export default function MobileBlocker() {
   if (!mounted) return null;
 
   // ================= HEART OVERLAY =================
-const HeartOverlay = () => {
-  const [messages, setMessages] = useState<string[]>([]);
-  const [hovered, setHovered] = useState(false);
-  const [randomMessage, setRandomMessage] = useState("");
-
-  useEffect(() => {
-    fetch("/messages.csv")
-      .then((res) => res.text())
-      .then((text) => {
-        const rows = text.split("\n").slice(1); // skip header
-        const cleaned = rows
-          .map((row) => row.trim())
-          .filter((row) => row.length > 0);
-        setMessages(cleaned);
-      });
-  }, []);
-
-  const handleHover = () => {
-    if (messages.length > 0) {
-      const random =
-        messages[Math.floor(Math.random() * messages.length)];
-      setRandomMessage(random);
-    }
-    setHovered(true);
-  };
-
-  return (
-    <div
-      className="fixed bottom-6 right-6 z-[9998]"
-      onMouseEnter={handleHover}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* Message Bubble */}
-      {hovered && randomMessage && (
-        <div className="absolute bottom-16 right-0 w-64 bg-black/90 border border-green-500 p-4 rounded-lg text-sm text-green-300 shadow-[0_0_15px_#22c55e] animate-fadeIn">
-          {randomMessage}
-        </div>
-      )}
-
-      {/* Heart */}
+  const HeartOverlay = () => {
+    const [messages, setMessages] = useState<string[]>([]);
+    const [hovered, setHovered] = useState(false);
+    const [randomMessage, setRandomMessage] = useState("");
+  
+    useEffect(() => {
+      fetch("/messages.csv")
+        .then((res) => res.text())
+        .then((text) => {
+          const rows = text.split("\n").slice(1); // skip header
+          const cleaned = rows
+            .map((row) => row.trim())
+            .filter((row) => row.length > 0);
+          setMessages(cleaned);
+        });
+    }, []);
+  
+    const handleHover = () => {
+      if (messages.length > 0) {
+        const random =
+          messages[Math.floor(Math.random() * messages.length)];
+        setRandomMessage(random);
+      }
+      setHovered(true);
+    };
+  
+    return (
       <div
-        className="w-12 h-12 rounded-full bg-green-500/20 backdrop-blur-md 
-                   flex items-center justify-center 
-                   shadow-[0_0_20px_#22c55e] 
-                   animate-heartPulse cursor-pointer"
+        className="fixed bottom-6 right-6 z-[9998]"
+        onMouseEnter={handleHover}
+        onMouseLeave={() => setHovered(false)}
       >
-        <span className="text-green-400 text-xl">💚</span>
+        {/* Message Bubble */}
+        {hovered && randomMessage && (
+          <div className="absolute bottom-16 right-0 w-64 bg-black/90 border border-green-500 p-4 rounded-lg text-sm text-green-300 shadow-[0_0_15px_#22c55e] animate-fadeIn">
+            {randomMessage}
+          </div>
+        )}
+  
+        {/* Heart */}
+        <div
+          className="w-12 h-12 rounded-full bg-green-500/20 backdrop-blur-md 
+                     flex items-center justify-center 
+                     shadow-[0_0_20px_#22c55e] 
+                     animate-heartPulse cursor-pointer"
+        >
+          <span className="text-green-400 text-xl">💚</span>
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
+  
 
+  // ================= MOBILE WARNING =================
+  if (!bypass && !matchResult && isMobile) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center 
+                      bg-black/95 text-white backdrop-blur-md">
+        <div className="bg-black border border-red-500 p-8 rounded-xl text-center max-w-sm">
+          <h1 className="text-lg text-red-400 mb-4">
+            Mobile Display Warning
+          </h1>
+          <p className="text-sm mb-6">
+            This website is optimized for desktop view.
+            Please use a laptop or enable desktop mode.
+          </p>
+          <button
+            onClick={() => setBypass(true)}
+            className="border border-green-500 px-4 py-2 rounded-lg 
+                       hover:bg-green-500 hover:text-black transition-all"
+          >
+            Continue Anyway →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= SIGNATURE FLOW =================
   if (!bypass && matchResult) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center 
@@ -200,30 +231,18 @@ const HeartOverlay = () => {
 
           {!confirmed && (
             <>
-              <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-6">
+              <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-4">
                 Mohamed Device Signature Detected ✔
               </div>
 
-            
-             {/* Device Info */}
-             <div className="text-xs text-green-400 mb-6 text-left space-y-1 border border-green-500/30 p-3 rounded-lg bg-black/40">
-               <p className="font-semibold text-green-300">
-                 {matchResult?.device?.name}
-               </p>
-
-              <p>
-                 Width: <span className="text-green-200">{deviceInfo?.width}px</span>
-               </p>
-
-               <p>
-                 DPR: <span className="text-green-200">{deviceInfo?.dpr}</span>
-               </p>
-
-               <p>
-                 Aspect Ratio:{" "}
-                 <span className="text-green-200">{deviceInfo?.aspect}</span>
-               </p>
-            </div>
+              <div className="text-xs text-green-400 mb-6 text-left space-y-1 border border-green-500/30 p-3 rounded-lg bg-black/40">
+                <p className="font-semibold text-green-300">
+                  {matchResult.device.name}
+                </p>
+                <p>Width: {deviceInfo?.width}px</p>
+                <p>DPR: {deviceInfo?.dpr}</p>
+                <p>Aspect Ratio: {deviceInfo?.aspect}</p>
+              </div>
 
               <button
                 onClick={() => setConfirmed(true)}
@@ -239,37 +258,33 @@ const HeartOverlay = () => {
           {confirmed && (
             <>
               <div className="text-left text-xs text-green-500 space-y-1 mb-4 h-36 overflow-hidden">
-              {logs.map((log: any, idx) => {
-                        if (!log) return null;
-
-                            return (
-                              <p key={idx}>
-                                  &gt;{" "}
-                                  <span className={
-                                    log?.type === "true"
-                                    ? "text-green-300 font-bold glow"
-                                    : log?.type === "false"
-                                    ? "text-red-400"
-                                    : ""
-                    }
-                 >
-                  {log?.text}
-                 </span>
-                 </p>
-                );
-            })}
+                {logs.map((log, idx) => (
+                  <p key={idx}>
+                    &gt;{" "}
+                    <span
+                      className={
+                        log?.type === "true"
+                          ? "text-green-300 font-bold glow"
+                          : log?.type === "false"
+                          ? "text-red-400"
+                          : ""
+                      }
+                    >
+                      {log?.text}
+                    </span>
+                  </p>
+                ))}
               </div>
 
               {scanning && (
                 <p
-                  className={`text-sm mt-2 transition-all duration-300 ${
+                  className={`text-sm mt-2 ${
                     confidence === 100
                       ? "text-green-300 font-bold ultra-glow"
                       : ""
                   }`}
                 >
                   Signature match confidence: {confidence}%
-                  {!confidenceDone && <span className="blink">▌</span>}
                 </p>
               )}
 
@@ -291,9 +306,5 @@ const HeartOverlay = () => {
     );
   }
 
-  return (
-    <>
-      {showHeart && <HeartOverlay />}
-    </>
-  );
+  return <>{showHeart && <HeartOverlay />}</>;
 }
