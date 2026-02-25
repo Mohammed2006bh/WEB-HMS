@@ -89,7 +89,7 @@ export default function Header() {
         {navLink("/", "Home")}
         {navLink("/tech", "My Tech")}
         {navLink("/blog", "Blog")}
-        {navLink("/BroSum", "Bro Things")}
+        {navLink("/BroSum", "Bro's Things")}
         {navLink("/HMSAi", "HMS Ai")}
       </nav>
 

@@ -92,8 +92,22 @@ body.dark .body-container {
   }
 }
 
-
-
 .site-header,.site-footer,.body-container{
   transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
 }
