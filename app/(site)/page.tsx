@@ -10,6 +10,7 @@ export default function Home() {
         <h1 className="text-5xl font-bold">
           I am <TypingText />
         </h1>
+        <h3 className="text-blue-400">↣ Software Engineer ↢</h3>
 
         <p className="mt-6 max-w-xl mx-auto text-gray-400">
           This is my personal website and portfolio, rebuilt using
