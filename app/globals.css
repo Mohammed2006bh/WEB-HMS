@@ -114,9 +114,10 @@ body.dark .body-container {
 
 /* Grid Pulse */
 .cyber-grid {
+  background-color: rgba(0, 0, 0, 0.97);
   background-image:
-    linear-gradient(rgba(34,197,94,0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34,197,94,0.08) 1px, transparent 1px);
+    linear-gradient(rgba(34,197,94,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px);
   background-size: 40px 40px;
   animation: gridPulse 3s ease-in-out infinite;
 }
@@ -159,4 +160,18 @@ body.dark .body-container {
 /* Glow when 100% */
 .glow {
   text-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+}
+
+
+@keyframes overlayFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-overlayFade {
+  animation: overlayFade 0.4s ease-out forwards;
 }

@@ -106,8 +106,13 @@ export default function MobileBlocker() {
   if (!mounted || bypass || !matchResult) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black cyber-grid flex items-center justify-center text-green-400 font-mono overflow-hidden">
-
+    <div
+         className="fixed inset-0 z-[9999] flex items-center justify-center 
+             text-green-400 font-mono overflow-hidden
+             bg-black/95 backdrop-blur-md
+             transition-opacity duration-500 ease-in-out
+             opacity-100 animate-overlayFade"
+    >
       {/* Binary Rain */}
       <div className="binary-rain"></div>
 
