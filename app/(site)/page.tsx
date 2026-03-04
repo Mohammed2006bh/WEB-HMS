@@ -41,7 +41,7 @@ export default function Home() {
                   M-Party
                 </h3>
                 <p className="text-sm text-gray-400">
-                  Watch together, talk together — create a room and enjoy synced content with friends
+                  Just stop the yapping and get in — create a room and enjoy synced content with friends 😏
                 </p>
               </div>
               <svg className="w-5 h-5 text-gray-500 group-hover:text-[#4CAF50] group-hover:translate-x-1 transition-all ml-auto shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
