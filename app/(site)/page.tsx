@@ -18,6 +18,19 @@ export default function Home() {
         </p>
       </section>
 
+
+      <SBody>
+        <section className="mb-8">
+          <h2 className="text-2xl font-semibold mb-2">Let's start a party 🎉 <br /> 
+            <span className="text-sm text-gray-400">🎉🎉🎉</span><br />
+            <nav className="flex gap-2">
+                navLink("/", "Home")
+            </nav>
+            </h2>
+        </section>
+      </SBody>
+
+
       {/* Main content */}
 
       <SBody>

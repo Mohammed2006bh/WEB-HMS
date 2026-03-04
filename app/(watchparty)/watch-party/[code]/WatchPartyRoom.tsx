@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Peer, { DataConnection, MediaConnection } from "peerjs";
 
-interface Member { name: string; peerId: string | null; isHost: boolean }
+interface Member { name: string; peerId: string | null; isHost: boolean; status?: "online" | "connecting" | "offline"; signal?: number }
 interface ChatMsg { id: string; from: string; text: string; ts: number; system?: boolean }
 interface EmojiBlast { id: string; emoji: string; from: string; x: number }
 interface AudioDevice { deviceId: string; label: string }
@@ -24,7 +24,9 @@ type WireMsg =
   | { type: "prebuffer-done"; name: string }
   | { type: "countdown"; startAt: number }
   | { type: "control-request"; id: string; from: string; action: "play" | "pause" | "fwd10" | "back10"; executeAt: number }
-  | { type: "control-cancel"; id: string };
+  | { type: "control-cancel"; id: string }
+  | { type: "ping"; ts: number }
+  | { type: "pong"; ts: number };
 
 const QUICK_EMOJIS = ["🔥", "😂", "❤️", "👏", "😮", "💀", "🎉", "👀"];
 
@@ -52,6 +54,22 @@ function detectContentType(url: string): "youtube" | "video" | "iframe" {
 }
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
+
+function SignalBars({ level }: { level: number }) {
+  const color = level >= 3 ? "#4CAF50" : level >= 2 ? "#FFC107" : level >= 1 ? "#FF9800" : "#555";
+  return (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16">
+      <rect x="1" y="12" width="3" height="4" rx="0.5" fill={level >= 1 ? color : "#333"} />
+      <rect x="5.5" y="8" width="3" height="8" rx="0.5" fill={level >= 2 ? color : "#333"} />
+      <rect x="10" y="4" width="3" height="12" rx="0.5" fill={level >= 3 ? color : "#333"} />
+    </svg>
+  );
+}
+
+function StatusDot({ status }: { status: string }) {
+  const cls = status === "online" ? "bg-[#4CAF50]" : status === "connecting" ? "bg-yellow-500 animate-pulse" : "bg-red-500";
+  return <div className={`w-2 h-2 rounded-full shrink-0 ${cls}`} />;
+}
 
 export default function WatchPartyRoom({ code }: { code: string }) {
   return (
@@ -103,6 +121,7 @@ function RoomInner({ code }: { code: string }) {
   const prebufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reqAnimRef = useRef<number | null>(null);
+  const peerStats = useRef<Map<string, { rtt: number; lastSeen: number }>>(new Map());
 
   const stateRef = useRef({ contentUrl: null as string | null, contentType: null as string | null, isHost });
   stateRef.current = { contentUrl, contentType, isHost };
@@ -256,7 +275,7 @@ function RoomInner({ code }: { code: string }) {
     setReadyNames((prev) => {
       const total = membersRef.current.length;
       if (prev.size >= total && total > 0) {
-        const startAt = Date.now() + 5500;
+        const startAt = Date.now() + 3500;
         broadcast({ type: "countdown", startAt });
         runCountdown(startAt);
       }
@@ -312,7 +331,7 @@ function RoomInner({ code }: { code: string }) {
       case "url":
         setContentUrl(msg.url);
         setContentType(msg.contentType || detectContentType(msg.url));
-        setTimeout(() => startPrebuffer(), 2000);
+        setTimeout(() => startPrebuffer(), 500);
         break;
       case "sync-check":
         if (msg.time !== undefined) {
@@ -326,13 +345,16 @@ function RoomInner({ code }: { code: string }) {
         }
         break;
       case "member-join":
-        updateMembers((prev) => prev.find((m) => m.name === msg.name) ? prev : [...prev, { name: msg.name, peerId: msg.peerId, isHost: msg.isHost }]);
+        updateMembers((prev) => prev.find((m) => m.name === msg.name) ? prev : [...prev, { name: msg.name, peerId: msg.peerId, isHost: msg.isHost, status: "connecting", signal: 0 }]);
         break;
       case "member-leave":
         updateMembers((prev) => prev.filter((m) => m.name !== msg.name));
         break;
       case "members-sync":
-        updateMembers(() => msg.members);
+        updateMembers((prev) => {
+          const statusMap = new Map(prev.map((m) => [m.name, { status: m.status, signal: m.signal }]));
+          return msg.members.map((m) => ({ ...m, status: statusMap.get(m.name)?.status || m.status || "connecting", signal: statusMap.get(m.name)?.signal ?? m.signal ?? 0 }));
+        });
         break;
       case "chat":
         addChat({ id: msg.id, from: msg.from, text: msg.text, ts: msg.ts, system: msg.system });
@@ -359,9 +381,22 @@ function RoomInner({ code }: { code: string }) {
   }
 
   function wireData(conn: DataConnection) {
-    conn.on("data", (raw) => applySync(raw as WireMsg));
+    conn.on("data", (raw) => {
+      const msg = raw as WireMsg;
+      if (msg.type === "ping") { conn.send({ type: "pong", ts: msg.ts }); return; }
+      if (msg.type === "pong") {
+        const rtt = Date.now() - msg.ts;
+        peerStats.current.set(conn.peer, { rtt, lastSeen: Date.now() });
+        const signal = rtt < 100 ? 3 : rtt < 250 ? 2 : rtt < 500 ? 1 : 0;
+        updateMembers((prev) => prev.map((m) => m.peerId === conn.peer ? { ...m, signal, status: "online" } : m));
+        return;
+      }
+      applySync(msg);
+    });
     conn.on("open", () => {
       dataConns.current.set(conn.peer, conn);
+      peerStats.current.set(conn.peer, { rtt: 0, lastSeen: Date.now() });
+      updateMembers((prev) => prev.map((m) => m.peerId === conn.peer ? { ...m, status: "online", signal: 3 } : m));
       if (stateRef.current.isHost) {
         if (stateRef.current.contentUrl) {
           conn.send({ type: "url", url: stateRef.current.contentUrl, contentType: stateRef.current.contentType } as WireMsg);
@@ -370,7 +405,11 @@ function RoomInner({ code }: { code: string }) {
         conn.send({ type: "members-sync", members: membersRef.current } as WireMsg);
       }
     });
-    conn.on("close", () => dataConns.current.delete(conn.peer));
+    conn.on("close", () => {
+      dataConns.current.delete(conn.peer);
+      peerStats.current.delete(conn.peer);
+      updateMembers((prev) => prev.map((m) => m.peerId === conn.peer ? { ...m, status: "offline", signal: 0 } : m));
+    });
   }
 
   function playRemoteStream(peerId: string, stream: MediaStream) {
@@ -409,6 +448,8 @@ function RoomInner({ code }: { code: string }) {
   useEffect(() => {
     let dead = false;
     (async () => {
+      updateMembers((prev) => prev.find((m) => m.name === userName) ? prev : [...prev, { name: userName, peerId: null, isHost, status: "connecting", signal: 0 }]);
+
       fetch("/api/watch-party/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -438,6 +479,7 @@ function RoomInner({ code }: { code: string }) {
       peer.on("open", async (myId) => {
         if (dead) return;
         setConnected(true);
+        updateMembers((prev) => prev.map((m) => m.name === userName ? { ...m, peerId: myId, status: "online", signal: 3 } : m));
         fetch(`/api/watch-party/${code}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ peerId: myId, memberName: userName }) });
         const res = await fetch(`/api/watch-party/${code}`);
         const d = await res.json();
@@ -467,12 +509,20 @@ function RoomInner({ code }: { code: string }) {
         const r = await fetch(`/api/watch-party/${code}`);
         const d = await r.json();
         if (d.room) {
-          updateMembers(() => d.room.members);
+          updateMembers((prev) => {
+            const merged = new Map<string, Member>();
+            prev.forEach((m) => merged.set(m.name, m));
+            (d.room.members as Member[]).forEach((m) => {
+              const existing = merged.get(m.name);
+              merged.set(m.name, { ...m, peerId: m.peerId || existing?.peerId || null, status: existing?.status || "connecting", signal: existing?.signal ?? 0 });
+            });
+            return Array.from(merged.values());
+          });
           const myId = peerRef.current?.id;
           if (myId) d.room.members.forEach((m: Member) => { if (m.peerId && m.peerId !== myId && !dataConns.current.has(m.peerId)) dialPeer(m.peerId); });
         }
       } catch {}
-    }, 5000);
+    }, 3000);
 
     return () => {
       dead = true;
@@ -497,6 +547,19 @@ function RoomInner({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, contentUrl]);
 
+  useEffect(() => {
+    const id = setInterval(() => {
+      dataConns.current.forEach((c) => { if (c.open) c.send({ type: "ping", ts: Date.now() }); });
+      const now = Date.now();
+      peerStats.current.forEach((stats, peerId) => {
+        if (now - stats.lastSeen > 15000) {
+          updateMembers((prev) => prev.map((m) => m.peerId === peerId ? { ...m, status: "offline", signal: 0 } : m));
+        }
+      });
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
+
   const emitPlay = () => { if (!ignoring.current && isHost) broadcast({ type: "play", time: getCurrentTime() }); };
   const emitPause = () => { if (!ignoring.current && isHost) broadcast({ type: "pause" }); };
   const emitSeek = () => { if (!ignoring.current && isHost) broadcast({ type: "seek", time: getCurrentTime() }); };
@@ -518,7 +581,7 @@ function RoomInner({ code }: { code: string }) {
     setUrlInput("");
     broadcast({ type: "url", url: u, contentType: t });
     fetch(`/api/watch-party/${code}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentUrl: u, contentType: t }) });
-    setTimeout(() => startPrebuffer(), 2000);
+    setTimeout(() => startPrebuffer(), 500);
   };
 
   const sendChat = () => {
@@ -719,8 +782,13 @@ function RoomInner({ code }: { code: string }) {
             {micError && <span className="text-red-400 text-xs">{micError}</span>}
             <div className="flex items-center gap-1 ml-auto">
               {members.map((m) => (
-                <div key={m.name} className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: memberColor(m.name) + "33", color: memberColor(m.name) }} title={m.name + (m.name === userName ? " (you)" : "")}>
-                  {m.name[0].toUpperCase()}
+                <div key={m.name} className="relative" title={`${m.name}${m.name === userName ? " (you)" : ""} - ${m.status || "connecting"}`}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ backgroundColor: memberColor(m.name) + "33", color: memberColor(m.name) }}>
+                    {m.name[0].toUpperCase()}
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5">
+                    <StatusDot status={m.status || (m.peerId ? "online" : "connecting")} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -731,11 +799,23 @@ function RoomInner({ code }: { code: string }) {
         <div className="w-72 border-l border-white/10 flex flex-col bg-black/30 shrink-0">
           <div className="px-3 py-2.5 border-b border-white/10">
             <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Members ({members.length})</h3>
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-col gap-1">
               {members.map((m) => (
-                <div key={m.name} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ backgroundColor: memberColor(m.name) + "1a", color: memberColor(m.name) }}>
-                  <span className="font-medium truncate max-w-[80px]">{m.name}</span>
-                  {m.name === userName && <span className="text-[9px] opacity-60">(you)</span>}
+                <div key={m.name} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs" style={{ backgroundColor: memberColor(m.name) + "1a" }}>
+                  <div className="relative shrink-0">
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: memberColor(m.name) + "33", color: memberColor(m.name) }}>
+                      {m.name[0].toUpperCase()}
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5">
+                      <StatusDot status={m.status || (m.peerId ? "online" : "connecting")} />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-medium truncate block max-w-[100px]" style={{ color: memberColor(m.name) }}>{m.name}</span>
+                    <span className="text-[9px] text-gray-500 capitalize">{m.status || "connecting"}</span>
+                  </div>
+                  {m.name === userName && <span className="text-[9px] text-gray-500">(you)</span>}
+                  <SignalBars level={m.signal ?? (m.name === userName ? 3 : 0)} />
                 </div>
               ))}
             </div>
