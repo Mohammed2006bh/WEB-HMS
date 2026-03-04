@@ -355,10 +355,15 @@ function RoomInner({ code }: { code: string }) {
         }
         break;
       case "member-join":
-        updateMembers((prev) => prev.find((m) => m.name === msg.name) ? prev : [...prev, { name: msg.name, peerId: msg.peerId, isHost: msg.isHost, status: "connecting", signal: 0 }]);
+        updateMembers((prev) => {
+          if (prev.find((m) => m.name === msg.name)) return prev;
+          addChat({ id: uid(), from: "system", text: `${msg.name} joined the party`, ts: Date.now(), system: true });
+          return [...prev, { name: msg.name, peerId: msg.peerId, isHost: msg.isHost, status: "connecting", signal: 0 }];
+        });
         break;
       case "member-leave":
         updateMembers((prev) => prev.filter((m) => m.name !== msg.name));
+        addChat({ id: uid(), from: "system", text: `${msg.name} left the party`, ts: Date.now(), system: true });
         break;
       case "members-sync":
         updateMembers((prev) => {
