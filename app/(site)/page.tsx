@@ -19,7 +19,6 @@ export default function Home() {
       </section>
 
 
-      <SBody>
         <div className="max-w-3xl mx-auto p-8">
           <a
             href="/watch-party"
@@ -50,7 +49,6 @@ export default function Home() {
             </div>
           </a>
         </div>
-      </SBody>
 
 
       {/* Main content */}

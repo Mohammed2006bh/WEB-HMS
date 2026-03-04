@@ -55,6 +55,15 @@ function detectContentType(url: string): "youtube" | "video" | "iframe" {
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  let h = d.getHours();
+  const m = d.getMinutes().toString().padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
+}
+
 function SignalBars({ level }: { level: number }) {
   const color = level >= 3 ? "#4CAF50" : level >= 2 ? "#FFC107" : level >= 1 ? "#FF9800" : "#555";
   return (
@@ -352,8 +361,17 @@ function RoomInner({ code }: { code: string }) {
         break;
       case "members-sync":
         updateMembers((prev) => {
-          const statusMap = new Map(prev.map((m) => [m.name, { status: m.status, signal: m.signal }]));
-          return msg.members.map((m) => ({ ...m, status: statusMap.get(m.name)?.status || m.status || "connecting", signal: statusMap.get(m.name)?.signal ?? m.signal ?? 0 }));
+          const merged = new Map<string, Member>();
+          prev.forEach((m) => merged.set(m.name, m));
+          msg.members.forEach((m) => {
+            const existing = merged.get(m.name);
+            if (existing) {
+              merged.set(m.name, { ...existing, peerId: m.peerId || existing.peerId, isHost: m.isHost || existing.isHost });
+            } else {
+              merged.set(m.name, { ...m, status: m.status || "connecting", signal: m.signal ?? 0 });
+            }
+          });
+          return Array.from(merged.values());
         });
         break;
       case "chat":
@@ -397,12 +415,11 @@ function RoomInner({ code }: { code: string }) {
       dataConns.current.set(conn.peer, conn);
       peerStats.current.set(conn.peer, { rtt: 0, lastSeen: Date.now() });
       updateMembers((prev) => prev.map((m) => m.peerId === conn.peer ? { ...m, status: "online", signal: 3 } : m));
-      if (stateRef.current.isHost) {
-        if (stateRef.current.contentUrl) {
-          conn.send({ type: "url", url: stateRef.current.contentUrl, contentType: stateRef.current.contentType } as WireMsg);
-          setTimeout(() => conn.send({ type: "sync-check", time: getCurrentTime() } as WireMsg), 1500);
-        }
-        conn.send({ type: "members-sync", members: membersRef.current } as WireMsg);
+      conn.send({ type: "member-join", name: userName, peerId: peerRef.current?.id || "", isHost } as WireMsg);
+      conn.send({ type: "members-sync", members: membersRef.current } as WireMsg);
+      if (stateRef.current.isHost && stateRef.current.contentUrl) {
+        conn.send({ type: "url", url: stateRef.current.contentUrl, contentType: stateRef.current.contentType } as WireMsg);
+        setTimeout(() => conn.send({ type: "sync-check", time: getCurrentTime() } as WireMsg), 1500);
       }
     });
     conn.on("close", () => {
@@ -832,7 +849,10 @@ function RoomInner({ code }: { code: string }) {
                     </div>
                   ) : (
                     <div className={`inline-block max-w-full rounded-lg px-2.5 py-1.5 text-sm break-words ${m.from === userName ? "bg-white/5 ml-auto" : "bg-white/[0.03]"}`}>
-                      <span className="text-[10px] font-semibold block" style={{ color: memberColor(m.from) }}>{m.from}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold" style={{ color: memberColor(m.from) }}>{m.from}</span>
+                        <span className="text-[9px] text-gray-600">{formatTime(m.ts)}</span>
+                      </div>
                       <span className="text-gray-200">{m.text}</span>
                     </div>
                   )}
@@ -848,9 +868,28 @@ function RoomInner({ code }: { code: string }) {
             </div>
 
             <div className="px-3 py-2 border-t border-white/10">
-              <div className="flex gap-1.5">
-                <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..." className="flex-1 rounded-lg px-3 py-1.5 text-sm bg-white/5 text-white placeholder-gray-600 outline-none border border-white/10 focus:border-[#4CAF50]/50 transition-colors" onKeyDown={(e) => e.key === "Enter" && sendChat()} />
-                <button onClick={sendChat} className="px-3 py-1.5 rounded-lg text-sm bg-[#4CAF50] text-white hover:bg-[#43A047] transition-colors shrink-0">Send</button>
+              <div className="flex gap-1.5 items-end">
+                <textarea
+                  value={chatInput}
+                  onChange={(e) => {
+                    setChatInput(e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 96) + "px";
+                  }}
+                  placeholder="Message..."
+                  rows={1}
+                  className="flex-1 rounded-lg px-3 py-1.5 text-sm bg-white/5 text-white placeholder-gray-600 outline-none border border-white/10 focus:border-[#4CAF50]/50 transition-colors resize-none overflow-y-auto"
+                  style={{ maxHeight: 96 }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendChat();
+                      const t = e.target as HTMLTextAreaElement;
+                      t.style.height = "auto";
+                    }
+                  }}
+                />
+                <button onClick={() => { sendChat(); const el = document.querySelector<HTMLTextAreaElement>("textarea[placeholder='Message...']"); if (el) el.style.height = "auto"; }} className="px-3 py-1.5 rounded-lg text-sm bg-[#4CAF50] text-white hover:bg-[#43A047] transition-colors shrink-0">Send</button>
               </div>
             </div>
           </div>
