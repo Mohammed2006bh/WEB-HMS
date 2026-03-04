@@ -1,15 +1,24 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function WatchPartyLanding() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const joinCode = searchParams.get("join");
+    if (joinCode) {
+      setRoomCode(joinCode.toUpperCase());
+      setMode("join");
+    }
+  }, [searchParams]);
 
   const handleCreate = async () => {
     if (!name.trim()) return setError("Enter your name");

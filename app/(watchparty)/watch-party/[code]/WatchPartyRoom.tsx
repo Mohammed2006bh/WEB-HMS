@@ -55,8 +55,8 @@ export default function WatchPartyRoom({ code }: { code: string }) {
   const [contentUrl, setContentUrl] = useState<string | null>(null);
   const [contentType, setContentType] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
-  const [muted, setMuted] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [copiedWhat, setCopiedWhat] = useState<"" | "code" | "link">("");
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState("");
   const [speakingPeers, setSpeakingPeers] = useState<Set<string>>(new Set());
@@ -245,8 +245,18 @@ export default function WatchPartyRoom({ code }: { code: string }) {
     audio.id = `audio-${peerId}`;
     audio.srcObject = stream;
     audio.autoplay = true;
+    audio.setAttribute("playsinline", "true");
     audio.style.display = "none";
     document.body.appendChild(audio);
+    audio.play().catch(() => {
+      const resumeAudio = () => {
+        audio.play().catch(() => {});
+        document.removeEventListener("click", resumeAudio);
+        document.removeEventListener("touchstart", resumeAudio);
+      };
+      document.addEventListener("click", resumeAudio);
+      document.addEventListener("touchstart", resumeAudio);
+    });
 
     monitorAudio(peerId, stream);
   }, [monitorAudio]);
@@ -256,7 +266,10 @@ export default function WatchPartyRoom({ code }: { code: string }) {
 
     async function init() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        stream.getAudioTracks().forEach((t) => (t.enabled = false));
         localStreamRef.current = stream;
       } catch {
         setError("Microphone access required for voice chat");
@@ -267,6 +280,24 @@ export default function WatchPartyRoom({ code }: { code: string }) {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
             { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" },
+            { urls: "stun:stun3.l.google.com:19302" },
+            { urls: "stun:stun4.l.google.com:19302" },
+            {
+              urls: "turn:openrelay.metered.ca:80",
+              username: "openrelayproject",
+              credential: "openrelayproject",
+            },
+            {
+              urls: "turn:openrelay.metered.ca:443",
+              username: "openrelayproject",
+              credential: "openrelayproject",
+            },
+            {
+              urls: "turn:openrelay.metered.ca:443?transport=tcp",
+              username: "openrelayproject",
+              credential: "openrelayproject",
+            },
           ],
         },
       });
@@ -374,8 +405,9 @@ export default function WatchPartyRoom({ code }: { code: string }) {
     if (!stream) return;
     const track = stream.getAudioTracks()[0];
     if (track) {
-      track.enabled = muted;
-      setMuted(!muted);
+      const newMuted = !muted;
+      track.enabled = !newMuted;
+      setMuted(newMuted);
     }
   };
 
@@ -398,8 +430,15 @@ export default function WatchPartyRoom({ code }: { code: string }) {
 
   const copyCode = () => {
     navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedWhat("code");
+    setTimeout(() => setCopiedWhat(""), 2000);
+  };
+
+  const copyLink = () => {
+    const link = `${window.location.origin}/watch-party?join=${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedWhat("link");
+    setTimeout(() => setCopiedWhat(""), 2000);
   };
 
   const leaveRoom = async () => {
@@ -424,7 +463,13 @@ export default function WatchPartyRoom({ code }: { code: string }) {
             onClick={copyCode}
             className="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
           >
-            {copied ? "Copied!" : "Copy"}
+            {copiedWhat === "code" ? "Copied!" : "Copy Code"}
+          </button>
+          <button
+            onClick={copyLink}
+            className="text-xs px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            {copiedWhat === "link" ? "Copied!" : "Copy Link"}
           </button>
           {isHost && (
             <span className="text-xs px-2 py-0.5 rounded bg-[#4CAF50]/20 text-[#4CAF50]">
@@ -471,7 +516,10 @@ export default function WatchPartyRoom({ code }: { code: string }) {
             )}
 
             {contentUrl && contentType === "youtube" && (
-              <YouTubePlayer
+              <>
+                <link rel="preconnect" href="https://www.youtube.com" />
+                <link rel="preconnect" href="https://i.ytimg.com" />
+                <YouTubePlayer
                 videoId={extractYouTubeId(contentUrl) || ""}
                 onReady={(player) => {
                   ytPlayerRef.current = player;
@@ -492,6 +540,7 @@ export default function WatchPartyRoom({ code }: { code: string }) {
                   }
                 }}
               />
+              </>
             )}
 
             {contentUrl && contentType === "video" && (
@@ -537,15 +586,15 @@ export default function WatchPartyRoom({ code }: { code: string }) {
             >
               {muted ? (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  <line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
                 </svg>
               ) : (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
               )}
-              {muted ? "Unmute" : "Mute"}
+              {muted ? "Mic Off" : "Mic On"}
             </button>
 
             {error && <span className="text-red-400 text-xs">{error}</span>}
@@ -654,6 +703,8 @@ function YouTubePlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YT.Player | null>(null);
   const lastTimeRef = useRef(0);
+  const callbacksRef = useRef({ onReady, onPlay, onPause, onSeek });
+  callbacksRef.current = { onReady, onPlay, onPause, onSeek };
 
   useEffect(() => {
     let player: YT.Player | null = null;
@@ -674,23 +725,25 @@ function YouTubePlayer({
           controls: 1,
           modestbranding: 1,
           rel: 0,
+          enablejsapi: 1,
+          origin: window.location.origin,
         },
         events: {
           onReady: (e: YT.PlayerEvent) => {
             playerRef.current = e.target;
-            onReady(e.target);
+            callbacksRef.current.onReady(e.target);
           },
           onStateChange: (e: YT.OnStateChangeEvent) => {
             if (e.data === YT.PlayerState.PLAYING) {
               const currentTime = e.target.getCurrentTime();
               if (Math.abs(currentTime - lastTimeRef.current) > 2) {
-                onSeek();
+                callbacksRef.current.onSeek();
               }
               lastTimeRef.current = currentTime;
-              onPlay();
+              callbacksRef.current.onPlay();
             } else if (e.data === YT.PlayerState.PAUSED) {
               lastTimeRef.current = e.target.getCurrentTime();
-              onPause();
+              callbacksRef.current.onPause();
             }
           },
         },
@@ -700,9 +753,12 @@ function YouTubePlayer({
     if (typeof window !== "undefined" && window.YT && window.YT.Player) {
       createPlayer();
     } else {
-      const tag = document.createElement("script");
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.head.appendChild(tag);
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        tag.async = true;
+        document.head.appendChild(tag);
+      }
       (window as unknown as Record<string, unknown>).onYouTubeIframeAPIReady = createPlayer;
     }
 
@@ -715,7 +771,7 @@ function YouTubePlayer({
         }
       }
     };
-  }, [videoId, onReady, onPlay, onPause, onSeek]);
+  }, [videoId]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }
