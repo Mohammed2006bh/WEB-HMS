@@ -5,9 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Peer, { DataConnection, MediaConnection } from "peerjs";
 
 interface Member { name: string; peerId: string | null; isHost: boolean }
-interface ChatMsg { id: string; from: string; text: string; ts: number }
+interface ChatMsg { id: string; from: string; text: string; ts: number; system?: boolean }
 interface EmojiBlast { id: string; emoji: string; from: string; x: number }
 interface AudioDevice { deviceId: string; label: string }
+interface ControlReq { id: string; from: string; action: "play" | "pause" | "fwd10" | "back10"; executeAt: number }
 
 type WireMsg =
   | { type: "play"; time: number }
@@ -18,10 +19,12 @@ type WireMsg =
   | { type: "member-join"; name: string; peerId: string; isHost: boolean }
   | { type: "member-leave"; name: string }
   | { type: "members-sync"; members: Member[] }
-  | { type: "chat"; id: string; from: string; text: string; ts: number }
+  | { type: "chat"; id: string; from: string; text: string; ts: number; system?: boolean }
   | { type: "emoji"; id: string; emoji: string; from: string }
   | { type: "prebuffer-done"; name: string }
-  | { type: "countdown"; startAt: number };
+  | { type: "countdown"; startAt: number }
+  | { type: "control-request"; id: string; from: string; action: "play" | "pause" | "fwd10" | "back10"; executeAt: number }
+  | { type: "control-cancel"; id: string };
 
 const QUICK_EMOJIS = ["🔥", "😂", "❤️", "👏", "😮", "💀", "🎉", "👀"];
 
@@ -83,6 +86,8 @@ function RoomInner({ code }: { code: string }) {
   const [syncPhase, setSyncPhase] = useState<"idle" | "prebuffer" | "countdown" | "synced">("idle");
   const [countdown, setCountdown] = useState(0);
   const [readyNames, setReadyNames] = useState<Set<string>>(new Set());
+  const [activeReq, setActiveReq] = useState<ControlReq | null>(null);
+  const [reqCountdown, setReqCountdown] = useState(0);
 
   const peerRef = useRef<Peer | null>(null);
   const dataConns = useRef<Map<string, DataConnection>>(new Map());
@@ -96,6 +101,8 @@ function RoomInner({ code }: { code: string }) {
   const seenIds = useRef(new Set<string>());
   const selectedDeviceRef = useRef("");
   const prebufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqAnimRef = useRef<number | null>(null);
 
   const stateRef = useRef({ contentUrl: null as string | null, contentType: null as string | null, isHost });
   stateRef.current = { contentUrl, contentType, isHost };
@@ -148,15 +155,87 @@ function RoomInner({ code }: { code: string }) {
     setTimeout(() => setEmojiBlasts((prev) => prev.filter((e) => e.id !== b.id)), 2500);
   }
 
+  const ACTION_LABELS: Record<string, string> = { play: "play", pause: "pause", fwd10: "skip forward", back10: "skip back" };
+
+  function systemChat(text: string) {
+    const msg: ChatMsg = { id: uid(), from: "System", text, ts: Date.now(), system: true };
+    addChat(msg);
+    broadcast({ type: "chat", ...msg });
+  }
+
+  function executeControlAction(action: string) {
+    const ct = stateRef.current.contentType;
+    ignoring.current = true;
+    if (action === "pause") {
+      if (ct === "youtube" && ytPlayer.current) ytPlayer.current.pauseVideo();
+      else if (videoEl.current) videoEl.current.pause();
+      broadcast({ type: "pause" });
+    } else if (action === "play") {
+      const t = getCurrentTime();
+      if (ct === "youtube" && ytPlayer.current) ytPlayer.current.playVideo();
+      else if (videoEl.current) videoEl.current.play();
+      broadcast({ type: "play", time: t });
+    } else if (action === "fwd10") {
+      const t = getCurrentTime() + 10;
+      if (ct === "youtube" && ytPlayer.current) ytPlayer.current.seekTo(t, true);
+      else if (videoEl.current) videoEl.current.currentTime = t;
+      broadcast({ type: "seek", time: t });
+    } else if (action === "back10") {
+      const t = Math.max(0, getCurrentTime() - 10);
+      if (ct === "youtube" && ytPlayer.current) ytPlayer.current.seekTo(t, true);
+      else if (videoEl.current) videoEl.current.currentTime = t;
+      broadcast({ type: "seek", time: t });
+    }
+    setTimeout(() => { ignoring.current = false; }, 300);
+  }
+
+  function handleControlRequest(req: ControlReq) {
+    if (seenIds.current.has(req.id)) return;
+    seenIds.current.add(req.id);
+    setActiveReq(req);
+    const tick = () => {
+      const left = Math.max(0, (req.executeAt - Date.now()) / 1000);
+      setReqCountdown(Math.ceil(left));
+      if (left > 0) { reqAnimRef.current = requestAnimationFrame(tick); }
+      else {
+        setActiveReq(null);
+        setReqCountdown(0);
+        reqAnimRef.current = null;
+        if (stateRef.current.isHost) {
+          executeControlAction(req.action);
+          systemChat(`${req.from} ${ACTION_LABELS[req.action] || req.action}ed the show`);
+        }
+      }
+    };
+    tick();
+  }
+
+  function cancelControlRequest(id: string) {
+    if (reqAnimRef.current) cancelAnimationFrame(reqAnimRef.current);
+    if (reqTimerRef.current) clearTimeout(reqTimerRef.current);
+    setActiveReq(null);
+    setReqCountdown(0);
+    broadcast({ type: "control-cancel", id });
+  }
+
+  function requestControl(action: "play" | "pause" | "fwd10" | "back10") {
+    if (activeReq) return;
+    const req: ControlReq = { id: uid(), from: userName, action, executeAt: Date.now() + 4000 };
+    broadcast({ type: "control-request", ...req });
+    handleControlRequest(req);
+  }
+
   function startPrebuffer() {
     setSyncPhase("prebuffer");
     setReadyNames(new Set());
     ignoring.current = true;
     const ct = stateRef.current.contentType;
     if (ct === "youtube" && ytPlayer.current) {
+      ytPlayer.current.mute();
       ytPlayer.current.seekTo(0, true);
       ytPlayer.current.playVideo();
     } else if (videoEl.current) {
+      videoEl.current.muted = true;
       videoEl.current.currentTime = 0;
       videoEl.current.play();
     }
@@ -195,8 +274,15 @@ function RoomInner({ code }: { code: string }) {
         setSyncPhase("synced");
         ignoring.current = false;
         const ct = stateRef.current.contentType;
-        if (ct === "youtube" && ytPlayer.current) { ytPlayer.current.seekTo(0, true); ytPlayer.current.playVideo(); }
-        else if (videoEl.current) { videoEl.current.currentTime = 0; videoEl.current.play(); }
+        if (ct === "youtube" && ytPlayer.current) {
+          ytPlayer.current.unMute();
+          ytPlayer.current.seekTo(0, true);
+          ytPlayer.current.playVideo();
+        } else if (videoEl.current) {
+          videoEl.current.muted = false;
+          videoEl.current.currentTime = 0;
+          videoEl.current.play();
+        }
       }
     };
     tick();
@@ -249,7 +335,7 @@ function RoomInner({ code }: { code: string }) {
         updateMembers(() => msg.members);
         break;
       case "chat":
-        addChat({ id: msg.id, from: msg.from, text: msg.text, ts: msg.ts });
+        addChat({ id: msg.id, from: msg.from, text: msg.text, ts: msg.ts, system: msg.system });
         break;
       case "emoji":
         spawnEmoji({ id: msg.id, emoji: msg.emoji, from: msg.from, x: 10 + Math.random() * 80 });
@@ -260,6 +346,14 @@ function RoomInner({ code }: { code: string }) {
         break;
       case "countdown":
         runCountdown(msg.startAt);
+        break;
+      case "control-request":
+        handleControlRequest({ id: msg.id, from: msg.from, action: msg.action, executeAt: msg.executeAt });
+        break;
+      case "control-cancel":
+        if (reqAnimRef.current) cancelAnimationFrame(reqAnimRef.current);
+        setActiveReq(null);
+        setReqCountdown(0);
         break;
     }
   }
@@ -378,6 +472,8 @@ function RoomInner({ code }: { code: string }) {
       dead = true;
       clearInterval(poll);
       if (prebufferTimerRef.current) clearTimeout(prebufferTimerRef.current);
+      if (reqAnimRef.current) cancelAnimationFrame(reqAnimRef.current);
+      if (reqTimerRef.current) clearTimeout(reqTimerRef.current);
       broadcast({ type: "member-leave", name: userName });
       dataConns.current.forEach((c) => c.close());
       mediaConns.current.forEach((c) => c.close());
@@ -395,9 +491,9 @@ function RoomInner({ code }: { code: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHost, contentUrl]);
 
-  const emitPlay = () => { if (!ignoring.current) broadcast({ type: "play", time: getCurrentTime() }); };
-  const emitPause = () => { if (!ignoring.current) broadcast({ type: "pause" }); };
-  const emitSeek = () => { if (!ignoring.current) broadcast({ type: "seek", time: getCurrentTime() }); };
+  const emitPlay = () => { if (!ignoring.current && isHost) broadcast({ type: "play", time: getCurrentTime() }); };
+  const emitPause = () => { if (!ignoring.current && isHost) broadcast({ type: "pause" }); };
+  const emitSeek = () => { if (!ignoring.current && isHost) broadcast({ type: "seek", time: getCurrentTime() }); };
 
   const toggleMute = () => {
     const track = localStream.current?.getAudioTracks()[0];
@@ -492,7 +588,29 @@ function RoomInner({ code }: { code: string }) {
       <style>{`
         @keyframes emoji-rise { 0%{opacity:1;transform:translateY(0) scale(1)} 50%{opacity:1;transform:translateY(-120px) scale(1.3)} 100%{opacity:0;transform:translateY(-260px) scale(.8)} }
         .animate-emoji-rise{animation:emoji-rise 2.5s ease-out forwards}
+        @keyframes req-bar { from{width:100%} to{width:0%} }
       `}</style>
+
+      {/* Control Request Banner */}
+      {activeReq && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-auto">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-xl px-5 py-3 shadow-2xl flex items-center gap-3 min-w-[280px]">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{ backgroundColor: memberColor(activeReq.from) + "33", color: memberColor(activeReq.from) }}>
+              {activeReq.from[0].toUpperCase()}
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-white"><span className="font-semibold" style={{ color: memberColor(activeReq.from) }}>{activeReq.from}</span> wants to {ACTION_LABELS[activeReq.action]}</p>
+              <div className="mt-1.5 h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-[#FF9800] rounded-full" style={{ animation: "req-bar 4s linear forwards" }} />
+              </div>
+            </div>
+            <span className="text-lg font-bold text-[#FF9800] tabular-nums w-6 text-center">{reqCountdown}</span>
+            {isHost && (
+              <button onClick={() => cancelControlRequest(activeReq.id)} className="text-xs px-2 py-1 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors">Cancel</button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Top Bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/50 backdrop-blur shrink-0">
@@ -520,15 +638,37 @@ function RoomInner({ code }: { code: string }) {
               </div>
             )}
             {contentUrl && contentType === "youtube" && (
-              <YouTubePlayer videoId={extractYouTubeId(contentUrl) || ""} onReady={(p) => { ytPlayer.current = p; }} onPlay={emitPlay} onPause={emitPause} onSeek={emitSeek} />
+              <YouTubePlayer videoId={extractYouTubeId(contentUrl) || ""} onReady={(p) => { ytPlayer.current = p; }} onPlay={emitPlay} onPause={emitPause} onSeek={emitSeek} hostControls={isHost} />
             )}
             {contentUrl && contentType === "video" && (
-              <video ref={videoEl} src={contentUrl} className="w-full h-full" controls onPlay={emitPlay} onPause={emitPause} onSeeked={emitSeek} />
+              <video ref={videoEl} src={contentUrl} className="w-full h-full" controls={isHost} onPlay={emitPlay} onPause={emitPause} onSeeked={emitSeek} />
             )}
             {contentUrl && contentType === "iframe" && (
               <iframe src={contentUrl} className="w-full h-full border-0" allowFullScreen allow="autoplay; encrypted-media" />
             )}
           </div>
+
+          {/* Member Controls (non-host) */}
+          {!isHost && contentUrl && contentType !== "iframe" && (
+            <div className="flex items-center justify-center gap-2 px-4 py-2 border-t border-white/5 bg-black/30 shrink-0">
+              <button onClick={() => requestControl("back10")} disabled={!!activeReq} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="12.5 10 3 10 3 1.5"/><path d="M3 10a9 9 0 1 0 3-6.7"/></svg>
+                -10s
+              </button>
+              <button onClick={() => requestControl("pause")} disabled={!!activeReq} className="flex items-center gap-1 px-4 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                Pause
+              </button>
+              <button onClick={() => requestControl("play")} disabled={!!activeReq} className="flex items-center gap-1 px-4 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Play
+              </button>
+              <button onClick={() => requestControl("fwd10")} disabled={!!activeReq} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-30">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="11.5 10 21 10 21 1.5"/><path d="M21 10a9 9 0 1 1-3-6.7"/></svg>
+                +10s
+              </button>
+            </div>
+          )}
 
           {/* Voice Bar */}
           <div className="flex items-center gap-2 px-4 py-2 border-t border-white/10 bg-black/50 backdrop-blur shrink-0">
@@ -595,10 +735,16 @@ function RoomInner({ code }: { code: string }) {
               {chatMessages.length === 0 && <p className="text-center text-gray-600 text-xs mt-8">No messages yet</p>}
               {chatMessages.map((m) => (
                 <div key={m.id}>
-                  <div className={`inline-block max-w-full rounded-lg px-2.5 py-1.5 text-sm break-words ${m.from === userName ? "bg-white/5 ml-auto" : "bg-white/[0.03]"}`}>
-                    <span className="text-[10px] font-semibold block" style={{ color: memberColor(m.from) }}>{m.from}</span>
-                    <span className="text-gray-200">{m.text}</span>
-                  </div>
+                  {m.system ? (
+                    <div className="text-center">
+                      <span className="text-[10px] text-gray-500 bg-white/[0.03] px-2.5 py-0.5 rounded-full">{m.text}</span>
+                    </div>
+                  ) : (
+                    <div className={`inline-block max-w-full rounded-lg px-2.5 py-1.5 text-sm break-words ${m.from === userName ? "bg-white/5 ml-auto" : "bg-white/[0.03]"}`}>
+                      <span className="text-[10px] font-semibold block" style={{ color: memberColor(m.from) }}>{m.from}</span>
+                      <span className="text-gray-200">{m.text}</span>
+                    </div>
+                  )}
                 </div>
               ))}
               <div ref={chatEndRef} />
@@ -631,7 +777,7 @@ function RoomInner({ code }: { code: string }) {
   );
 }
 
-function YouTubePlayer({ videoId, onReady, onPlay, onPause, onSeek }: { videoId: string; onReady: (p: YT.Player) => void; onPlay: () => void; onPause: () => void; onSeek: () => void }) {
+function YouTubePlayer({ videoId, onReady, onPlay, onPause, onSeek, hostControls }: { videoId: string; onReady: (p: YT.Player) => void; onPlay: () => void; onPause: () => void; onSeek: () => void; hostControls: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const cb = useRef({ onReady, onPlay, onPause, onSeek });
   cb.current = { onReady, onPlay, onPause, onSeek };
@@ -645,7 +791,7 @@ function YouTubePlayer({ videoId, onReady, onPlay, onPause, onSeek }: { videoId:
       ref.current.innerHTML = `<div id="${divId}"></div>`;
       player = new YT.Player(divId, {
         videoId, width: "100%", height: "100%",
-        playerVars: { autoplay: 0, controls: 1, modestbranding: 1, rel: 0, enablejsapi: 1, origin: window.location.origin },
+        playerVars: { autoplay: 0, controls: hostControls ? 1 : 0, modestbranding: 1, rel: 0, enablejsapi: 1, origin: window.location.origin },
         events: {
           onReady: (e: YT.PlayerEvent) => cb.current.onReady(e.target),
           onStateChange: (e: YT.OnStateChangeEvent) => {
@@ -668,7 +814,7 @@ function YouTubePlayer({ videoId, onReady, onPlay, onPause, onSeek }: { videoId:
       (window as unknown as Record<string, unknown>).onYouTubeIframeAPIReady = make;
     }
     return () => { try { player?.destroy(); } catch {} };
-  }, [videoId]);
+  }, [videoId, hostControls]);
 
   return <div ref={ref} className="w-full h-full" />;
 }

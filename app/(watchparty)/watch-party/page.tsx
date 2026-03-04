@@ -40,27 +40,17 @@ function WatchPartyContent() {
     }
   };
 
-  const handleJoin = async () => {
+  const handleJoin = () => {
     if (!name.trim()) return setError("Enter your name");
     if (!roomCode.trim()) return setError("Enter room code");
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/watch-party/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: roomCode.trim().toUpperCase(), name: name.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      router.push(
-        `/watch-party/${roomCode.trim().toUpperCase()}?name=${encodeURIComponent(name.trim())}`
-      );
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
-    } finally {
-      setLoading(false);
-    }
+    const c = roomCode.trim().toUpperCase();
+    const n = name.trim();
+    router.push(`/watch-party/${c}?name=${encodeURIComponent(n)}`);
+    fetch("/api/watch-party/join", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: c, name: n }),
+    }).catch(() => {});
   };
 
   return (
@@ -142,10 +132,9 @@ function WatchPartyContent() {
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <button
                 onClick={handleJoin}
-                disabled={loading}
-                className="w-full py-3 rounded-xl text-lg font-medium bg-[#4CAF50] text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                className="w-full py-3 rounded-xl text-lg font-medium bg-[#4CAF50] text-white transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
               >
-                {loading ? "Joining..." : "Join"}
+                Join
               </button>
               <button
                 onClick={() => { setMode("idle"); setError(""); }}
