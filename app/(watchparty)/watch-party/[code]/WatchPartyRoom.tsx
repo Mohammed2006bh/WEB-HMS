@@ -10,13 +10,33 @@ interface Member {
   isHost: boolean;
 }
 
-interface SyncMessage {
-  type: "play" | "pause" | "seek" | "url" | "sync-check";
-  time?: number;
-  url?: string;
-  contentType?: string;
-  from?: string;
+interface ChatMsg {
+  id: string;
+  from: string;
+  text: string;
+  ts: number;
 }
+
+interface EmojiBlast {
+  id: string;
+  emoji: string;
+  from: string;
+  x: number;
+}
+
+type WireMsg =
+  | { type: "play"; time: number }
+  | { type: "pause" }
+  | { type: "seek"; time: number }
+  | { type: "url"; url: string; contentType: string }
+  | { type: "sync-check"; time: number }
+  | { type: "member-join"; name: string; peerId: string; isHost: boolean }
+  | { type: "member-leave"; name: string }
+  | { type: "members-sync"; members: Member[] }
+  | { type: "chat"; id: string; from: string; text: string; ts: number }
+  | { type: "emoji"; id: string; emoji: string; from: string };
+
+const QUICK_EMOJIS = ["🔥", "😂", "❤️", "👏", "😮", "💀", "🎉", "👀"];
 
 function extractYouTubeId(url: string): string | null {
   const m =
@@ -30,6 +50,10 @@ function detectContentType(url: string): "youtube" | "video" | "iframe" {
   if (extractYouTubeId(url)) return "youtube";
   if (/\.(mp4|webm|ogg|m3u8)(\?|$)/i.test(url)) return "video";
   return "iframe";
+}
+
+function uid() {
+  return Math.random().toString(36).slice(2, 9);
 }
 
 export default function WatchPartyRoom({ code }: { code: string }) {
@@ -60,6 +84,9 @@ function RoomInner({ code }: { code: string }) {
   const [copiedWhat, setCopiedWhat] = useState<"" | "code" | "link">("");
   const [connected, setConnected] = useState(false);
   const [micError, setMicError] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [emojiBlasts, setEmojiBlasts] = useState<EmojiBlast[]>([]);
 
   const peerRef = useRef<Peer | null>(null);
   const dataConns = useRef<Map<string, DataConnection>>(new Map());
@@ -68,6 +95,11 @@ function RoomInner({ code }: { code: string }) {
   const ytPlayer = useRef<YT.Player | null>(null);
   const videoEl = useRef<HTMLVideoElement | null>(null);
   const ignoring = useRef(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const membersRef = useRef<Member[]>([]);
+  const seenMsgIds = useRef(new Set<string>());
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
   const stateRef = useRef({ contentUrl: null as string | null, contentType: null as string | null, isHost });
   stateRef.current = { contentUrl, contentType, isHost };
 
@@ -79,83 +111,140 @@ function RoomInner({ code }: { code: string }) {
     return 0;
   }
 
-  function broadcast(msg: SyncMessage) {
+  function broadcast(msg: WireMsg) {
     dataConns.current.forEach((c) => {
       if (c.open) c.send(msg);
     });
   }
 
-  function applySync(msg: SyncMessage) {
-    ignoring.current = true;
+  function updateMembers(fn: (prev: Member[]) => Member[]) {
+    setMembers((prev) => {
+      const next = fn(prev);
+      membersRef.current = next;
+      return next;
+    });
+  }
+
+  function addChat(msg: ChatMsg) {
+    if (seenMsgIds.current.has(msg.id)) return;
+    seenMsgIds.current.add(msg.id);
+    setChatMessages((prev) => [...prev.slice(-100), msg]);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
+  function spawnEmoji(blast: EmojiBlast) {
+    if (seenMsgIds.current.has(blast.id)) return;
+    seenMsgIds.current.add(blast.id);
+    setEmojiBlasts((prev) => [...prev, blast]);
+    setTimeout(() => {
+      setEmojiBlasts((prev) => prev.filter((e) => e.id !== blast.id));
+    }, 2500);
+  }
+
+  function applySync(msg: WireMsg) {
     const ct = stateRef.current.contentType;
     switch (msg.type) {
       case "play":
-        if (msg.time !== undefined) {
-          if (ct === "youtube" && ytPlayer.current) {
-            ytPlayer.current.seekTo(msg.time, true);
-            ytPlayer.current.playVideo();
-          } else if (videoEl.current) {
-            videoEl.current.currentTime = msg.time;
-            videoEl.current.play();
-          }
+        ignoring.current = true;
+        if (ct === "youtube" && ytPlayer.current) {
+          ytPlayer.current.seekTo(msg.time, true);
+          ytPlayer.current.playVideo();
+        } else if (videoEl.current) {
+          videoEl.current.currentTime = msg.time;
+          videoEl.current.play();
         }
+        setTimeout(() => { ignoring.current = false; }, 300);
         break;
       case "pause":
+        ignoring.current = true;
         if (ct === "youtube" && ytPlayer.current) ytPlayer.current.pauseVideo();
         else if (videoEl.current) videoEl.current.pause();
+        setTimeout(() => { ignoring.current = false; }, 300);
         break;
       case "seek":
-        if (msg.time !== undefined) {
-          if (ct === "youtube" && ytPlayer.current) ytPlayer.current.seekTo(msg.time, true);
-          else if (videoEl.current) videoEl.current.currentTime = msg.time;
-        }
+        ignoring.current = true;
+        if (ct === "youtube" && ytPlayer.current) ytPlayer.current.seekTo(msg.time, true);
+        else if (videoEl.current) videoEl.current.currentTime = msg.time;
+        setTimeout(() => { ignoring.current = false; }, 300);
         break;
       case "url":
-        if (msg.url) {
-          setContentUrl(msg.url);
-          setContentType(msg.contentType || detectContentType(msg.url));
-        }
+        setContentUrl(msg.url);
+        setContentType(msg.contentType || detectContentType(msg.url));
         break;
       case "sync-check":
         if (msg.time !== undefined) {
           const diff = Math.abs(getCurrentTime() - msg.time);
           if (diff > 1) {
+            ignoring.current = true;
             if (ct === "youtube" && ytPlayer.current) ytPlayer.current.seekTo(msg.time, true);
             else if (videoEl.current) videoEl.current.currentTime = msg.time;
+            setTimeout(() => { ignoring.current = false; }, 300);
           }
         }
         break;
+      case "member-join":
+        updateMembers((prev) => {
+          if (prev.find((m) => m.name === msg.name)) return prev;
+          return [...prev, { name: msg.name, peerId: msg.peerId, isHost: msg.isHost }];
+        });
+        break;
+      case "member-leave":
+        updateMembers((prev) => prev.filter((m) => m.name !== msg.name));
+        break;
+      case "members-sync":
+        updateMembers(() => msg.members);
+        break;
+      case "chat":
+        addChat({ id: msg.id, from: msg.from, text: msg.text, ts: msg.ts });
+        break;
+      case "emoji":
+        spawnEmoji({ id: msg.id, emoji: msg.emoji, from: msg.from, x: 10 + Math.random() * 80 });
+        break;
     }
-    setTimeout(() => { ignoring.current = false; }, 300);
   }
 
   function wireData(conn: DataConnection) {
-    conn.on("data", (raw) => applySync(raw as SyncMessage));
+    conn.on("data", (raw) => applySync(raw as WireMsg));
     conn.on("open", () => {
       dataConns.current.set(conn.peer, conn);
-      if (stateRef.current.isHost && stateRef.current.contentUrl) {
-        conn.send({ type: "url", url: stateRef.current.contentUrl, contentType: stateRef.current.contentType } as SyncMessage);
-        setTimeout(() => {
-          conn.send({ type: "sync-check", time: getCurrentTime() } as SyncMessage);
-        }, 1500);
+      if (stateRef.current.isHost) {
+        if (stateRef.current.contentUrl) {
+          conn.send({ type: "url", url: stateRef.current.contentUrl, contentType: stateRef.current.contentType } as WireMsg);
+          setTimeout(() => {
+            conn.send({ type: "sync-check", time: getCurrentTime() } as WireMsg);
+          }, 1500);
+        }
+        conn.send({ type: "members-sync", members: membersRef.current } as WireMsg);
       }
     });
     conn.on("close", () => dataConns.current.delete(conn.peer));
   }
 
   function playRemoteStream(peerId: string, stream: MediaStream) {
-    let el = document.getElementById(`audio-${peerId}`) as HTMLAudioElement | null;
-    if (el) { el.srcObject = stream; return; }
-    el = document.createElement("audio");
+    const existingAudio = document.getElementById(`audio-${peerId}`) as HTMLAudioElement | null;
+    if (existingAudio) existingAudio.remove();
+
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioContext();
+    }
+    const ctx = audioCtxRef.current;
+    if (ctx.state === "suspended") ctx.resume();
+    const source = ctx.createMediaStreamSource(stream);
+    source.connect(ctx.destination);
+
+    const el = document.createElement("audio");
     el.id = `audio-${peerId}`;
     el.srcObject = stream;
     el.autoplay = true;
     el.setAttribute("playsinline", "true");
     el.volume = 1;
-    el.style.display = "none";
+    el.style.cssText = "position:absolute;left:-9999px;";
     document.body.appendChild(el);
     el.play().catch(() => {
-      const resume = () => { el!.play().catch(() => {}); document.removeEventListener("click", resume); document.removeEventListener("touchstart", resume); };
+      const resume = () => {
+        el.play().catch(() => {});
+        if (ctx.state === "suspended") ctx.resume();
+      };
       document.addEventListener("click", resume, { once: true });
       document.addEventListener("touchstart", resume, { once: true });
     });
@@ -214,7 +303,7 @@ function RoomInner({ code }: { code: string }) {
         const res = await fetch(`/api/watch-party/${code}`);
         const d = await res.json();
         if (d.room) {
-          setMembers(d.room.members);
+          updateMembers(() => d.room.members);
           if (d.room.contentUrl) {
             setContentUrl(d.room.contentUrl);
             setContentType(d.room.contentType || detectContentType(d.room.contentUrl));
@@ -223,6 +312,7 @@ function RoomInner({ code }: { code: string }) {
             if (m.peerId && m.peerId !== myId) dialPeer(m.peerId);
           });
         }
+        broadcast({ type: "member-join", name: userName, peerId: myId, isHost });
       });
 
       peer.on("connection", (c) => wireData(c));
@@ -242,7 +332,7 @@ function RoomInner({ code }: { code: string }) {
         const r = await fetch(`/api/watch-party/${code}`);
         const d = await r.json();
         if (d.room) {
-          setMembers(d.room.members);
+          updateMembers(() => d.room.members);
           const myId = peerRef.current?.id;
           if (myId) {
             d.room.members.forEach((m: Member) => {
@@ -256,10 +346,12 @@ function RoomInner({ code }: { code: string }) {
     return () => {
       dead = true;
       clearInterval(poll);
+      broadcast({ type: "member-leave", name: userName });
       dataConns.current.forEach((c) => c.close());
       mediaConns.current.forEach((c) => c.close());
       localStream.current?.getTracks().forEach((t) => t.stop());
       document.querySelectorAll("audio[id^='audio-']").forEach((el) => el.remove());
+      audioCtxRef.current?.close().catch(() => {});
       peerRef.current?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -281,6 +373,7 @@ function RoomInner({ code }: { code: string }) {
   const toggleMute = () => {
     const track = localStream.current?.getAudioTracks()[0];
     if (!track) return;
+    if (audioCtxRef.current?.state === "suspended") audioCtxRef.current.resume();
     const next = !muted;
     track.enabled = !next;
     setMuted(next);
@@ -297,17 +390,56 @@ function RoomInner({ code }: { code: string }) {
     fetch(`/api/watch-party/${code}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contentUrl: u, contentType: t }) });
   };
 
+  const sendChat = () => {
+    const text = chatInput.trim();
+    if (!text) return;
+    const msg: ChatMsg = { id: uid(), from: userName, text, ts: Date.now() };
+    addChat(msg);
+    broadcast({ type: "chat", ...msg });
+    setChatInput("");
+  };
+
+  const sendEmoji = (emoji: string) => {
+    const blast: EmojiBlast = { id: uid(), emoji, from: userName, x: 10 + Math.random() * 80 };
+    spawnEmoji(blast);
+    broadcast({ type: "emoji", id: blast.id, emoji, from: userName });
+  };
+
   const copyCode = () => { navigator.clipboard.writeText(code); setCopiedWhat("code"); setTimeout(() => setCopiedWhat(""), 2000); };
   const copyLink = () => { navigator.clipboard.writeText(`${window.location.origin}/watch-party?join=${code}`); setCopiedWhat("link"); setTimeout(() => setCopiedWhat(""), 2000); };
 
   const leaveRoom = () => {
+    broadcast({ type: "member-leave", name: userName });
     router.push("/watch-party");
     fetch(`/api/watch-party/${code}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ removeMember: userName }) });
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0a] text-white overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/10 bg-black/50 backdrop-blur shrink-0">
+    <div className="h-screen flex flex-col bg-[#0a0a0a] text-white overflow-hidden relative">
+      {/* Emoji Blasts */}
+      {emojiBlasts.map((b) => (
+        <div
+          key={b.id}
+          className="fixed pointer-events-none z-50 animate-emoji-rise"
+          style={{ left: `${b.x}%`, bottom: "10%" }}
+        >
+          <div className="flex flex-col items-center">
+            <span className="text-5xl drop-shadow-lg">{b.emoji}</span>
+            <span className="text-[10px] text-white/70 mt-1 bg-black/40 px-1.5 py-0.5 rounded">{b.from}</span>
+          </div>
+        </div>
+      ))}
+      <style>{`
+        @keyframes emoji-rise {
+          0% { opacity: 1; transform: translateY(0) scale(1); }
+          50% { opacity: 1; transform: translateY(-120px) scale(1.3); }
+          100% { opacity: 0; transform: translateY(-260px) scale(0.8); }
+        }
+        .animate-emoji-rise { animation: emoji-rise 2.5s ease-out forwards; }
+      `}</style>
+
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/50 backdrop-blur shrink-0">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${connected ? "bg-[#4CAF50]" : "bg-red-500"}`} />
           <span className="font-mono text-lg tracking-wider">{code}</span>
@@ -325,6 +457,7 @@ function RoomInner({ code }: { code: string }) {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Player + Voice Bar */}
         <div className="flex-1 flex flex-col">
           <div className="flex-1 relative bg-black flex items-center justify-center">
             {!contentUrl && (
@@ -337,13 +470,7 @@ function RoomInner({ code }: { code: string }) {
               </div>
             )}
             {contentUrl && contentType === "youtube" && (
-              <YouTubePlayer
-                videoId={extractYouTubeId(contentUrl) || ""}
-                onReady={(p) => { ytPlayer.current = p; }}
-                onPlay={emitPlay}
-                onPause={emitPause}
-                onSeek={emitSeek}
-              />
+              <YouTubePlayer videoId={extractYouTubeId(contentUrl) || ""} onReady={(p) => { ytPlayer.current = p; }} onPlay={emitPlay} onPause={emitPause} onSeek={emitSeek} />
             )}
             {contentUrl && contentType === "video" && (
               <video ref={videoEl} src={contentUrl} className="w-full h-full" controls onPlay={emitPlay} onPause={emitPause} onSeeked={emitSeek} />
@@ -353,23 +480,17 @@ function RoomInner({ code }: { code: string }) {
             )}
           </div>
 
-          <div className="flex items-center gap-3 px-4 py-2.5 border-t border-white/10 bg-black/50 backdrop-blur shrink-0">
+          <div className="flex items-center gap-3 px-4 py-2 border-t border-white/10 bg-black/50 backdrop-blur shrink-0">
             <button
               onClick={toggleMute}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                 muted ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-[#4CAF50]/20 text-[#4CAF50] hover:bg-[#4CAF50]/30"
               }`}
             >
-              {muted ? (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                  <line x1="2" y1="2" x2="22" y2="22" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              )}
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                {muted && <line x1="2" y1="2" x2="22" y2="22" />}
+              </svg>
               {muted ? "Mic Off" : "Mic On"}
             </button>
             {micError && <span className="text-red-400 text-xs">{micError}</span>}
@@ -389,35 +510,90 @@ function RoomInner({ code }: { code: string }) {
           </div>
         </div>
 
-        <div className="w-64 border-l border-white/10 flex flex-col bg-black/30 shrink-0">
-          <div className="p-4 border-b border-white/10">
-            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Members ({members.length})</h3>
-            <div className="space-y-1.5">
+        {/* Sidebar */}
+        <div className="w-72 border-l border-white/10 flex flex-col bg-black/30 shrink-0">
+          {/* Members */}
+          <div className="px-3 py-2.5 border-b border-white/10">
+            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Members ({members.length})</h3>
+            <div className="flex flex-wrap gap-1">
               {members.map((m) => (
-                <div key={m.name} className="flex items-center gap-2">
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${m.isHost ? "bg-[#4CAF50] text-white" : "bg-white/10 text-gray-300"}`}>
-                    {m.name[0].toUpperCase()}
-                  </div>
-                  <span className="text-sm text-gray-300 truncate">{m.name}{m.name === userName && " (you)"}</span>
-                  {m.isHost && <span className="text-[9px] px-1 py-0.5 rounded bg-[#4CAF50]/20 text-[#4CAF50] ml-auto">Host</span>}
+                <div
+                  key={m.name}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${m.isHost ? "bg-[#4CAF50]/20 text-[#4CAF50]" : "bg-white/5 text-gray-400"}`}
+                  title={m.name}
+                >
+                  <span className="font-medium truncate max-w-[80px]">{m.name}</span>
+                  {m.name === userName && <span className="text-[9px] opacity-60">(you)</span>}
                 </div>
               ))}
             </div>
           </div>
-          <div className="p-4">
-            <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">Share Content</h3>
-            <input
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              placeholder="Paste URL..."
-              className="w-full rounded-lg px-3 py-2 text-sm bg-white/5 text-white placeholder-gray-600 outline-none border border-white/10 focus:border-[#4CAF50]/50 transition-colors mb-2"
-              onKeyDown={(e) => e.key === "Enter" && shareUrl()}
-            />
-            <button onClick={shareUrl} className="w-full py-2 rounded-lg text-sm font-medium bg-[#4CAF50] text-white hover:bg-[#43A047] transition-colors">
-              Share
-            </button>
+
+          {/* Chat */}
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 scrollbar-thin">
+              {chatMessages.length === 0 && (
+                <p className="text-center text-gray-600 text-xs mt-8">No messages yet</p>
+              )}
+              {chatMessages.map((m) => (
+                <div key={m.id} className="group">
+                  <div className={`inline-block max-w-full rounded-lg px-2.5 py-1.5 text-sm break-words ${
+                    m.from === userName ? "bg-[#4CAF50]/20 text-gray-200 ml-auto" : "bg-white/5 text-gray-300"
+                  }`}>
+                    <span className={`text-[10px] font-semibold block ${m.from === userName ? "text-[#4CAF50]" : "text-gray-500"}`}>{m.from}</span>
+                    {m.text}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Quick Emojis */}
+            <div className="flex items-center gap-0.5 px-3 py-1.5 border-t border-white/5">
+              {QUICK_EMOJIS.map((e) => (
+                <button
+                  key={e}
+                  onClick={() => sendEmoji(e)}
+                  className="flex-1 text-center text-lg py-1 rounded hover:bg-white/10 transition-colors active:scale-110"
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+
+            {/* Chat Input */}
+            <div className="px-3 py-2 border-t border-white/10">
+              <div className="flex gap-1.5">
+                <input
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="Message..."
+                  className="flex-1 rounded-lg px-3 py-1.5 text-sm bg-white/5 text-white placeholder-gray-600 outline-none border border-white/10 focus:border-[#4CAF50]/50 transition-colors"
+                  onKeyDown={(e) => e.key === "Enter" && sendChat()}
+                />
+                <button onClick={sendChat} className="px-3 py-1.5 rounded-lg text-sm bg-[#4CAF50] text-white hover:bg-[#43A047] transition-colors shrink-0">
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Share URL */}
+          <div className="px-3 py-2.5 border-t border-white/10">
+            <div className="flex gap-1.5">
+              <input
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="Paste URL..."
+                className="flex-1 rounded-lg px-3 py-1.5 text-sm bg-white/5 text-white placeholder-gray-600 outline-none border border-white/10 focus:border-[#4CAF50]/50 transition-colors"
+                onKeyDown={(e) => e.key === "Enter" && shareUrl()}
+              />
+              <button onClick={shareUrl} className="px-3 py-1.5 rounded-lg text-sm bg-[#4CAF50] text-white hover:bg-[#43A047] transition-colors shrink-0">
+                Share
+              </button>
+            </div>
             {contentUrl && (
-              <p className="mt-2 text-[11px] text-gray-500 truncate">Playing: {contentUrl}</p>
+              <p className="mt-1 text-[10px] text-gray-600 truncate">Playing: {contentUrl}</p>
             )}
           </div>
         </div>
