@@ -475,25 +475,52 @@ function RoomInner({ code }: { code: string }) {
 
   useEffect(() => {
     let dead = false;
+    const knownPeerIds: string[] = [];
+
     (async () => {
       updateMembers((prev) => prev.find((m) => m.name === userName) ? prev : [...prev, { name: userName, peerId: null, isHost, status: "connecting", signal: 0 }]);
 
-      fetch("/api/watch-party/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, name: userName }),
-      }).catch(() => {});
+      const [joinData] = await Promise.all([
+        fetch("/api/watch-party/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, name: userName }),
+        }).then((r) => r.json()).catch(() => null),
 
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-        s.getAudioTracks().forEach((t) => (t.enabled = false));
-        localStream.current = s;
-      } catch {
-        try {
-          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
-          s.getAudioTracks().forEach((t) => (t.enabled = false));
-          localStream.current = s;
-        } catch { setMicError("Mic access denied"); }
+        (async () => {
+          try {
+            const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+            s.getAudioTracks().forEach((t) => (t.enabled = false));
+            localStream.current = s;
+          } catch {
+            try {
+              const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+              s.getAudioTracks().forEach((t) => (t.enabled = false));
+              localStream.current = s;
+            } catch { setMicError("Mic access denied"); }
+          }
+        })(),
+      ]);
+
+      if (joinData?.room) {
+        updateMembers((prev) => {
+          const merged = new Map<string, Member>();
+          prev.forEach((m) => merged.set(m.name, m));
+          (joinData.room.members as Member[]).forEach((m: Member) => {
+            const existing = merged.get(m.name);
+            if (existing) {
+              merged.set(m.name, { ...existing, peerId: m.peerId || existing.peerId, isHost: m.isHost || existing.isHost });
+            } else {
+              merged.set(m.name, { ...m, status: "connecting", signal: 0 });
+            }
+          });
+          return Array.from(merged.values());
+        });
+        joinData.room.members.forEach((m: Member) => { if (m.peerId) knownPeerIds.push(m.peerId); });
+        if (joinData.room.contentUrl) {
+          setContentUrl(joinData.room.contentUrl);
+          setContentType(joinData.room.contentType || detectContentType(joinData.room.contentUrl));
+        }
       }
 
       const peer = new Peer({
@@ -510,18 +537,21 @@ function RoomInner({ code }: { code: string }) {
       });
       peerRef.current = peer;
 
-      peer.on("open", async (myId) => {
+      peer.on("open", (myId) => {
         if (dead) return;
         setConnected(true);
         updateMembers((prev) => prev.map((m) => m.name === userName ? { ...m, peerId: myId, status: "online", signal: 3 } : m));
-        fetch(`/api/watch-party/${code}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ peerId: myId, memberName: userName }) });
-        const res = await fetch(`/api/watch-party/${code}`);
-        const d = await res.json();
-        if (d.room) {
+
+        knownPeerIds.forEach((pid) => { if (pid !== myId) dialPeer(pid); });
+        broadcast({ type: "member-join", name: userName, peerId: myId, isHost });
+
+        fetch(`/api/watch-party/${code}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ peerId: myId, memberName: userName }) }).catch(() => {});
+        fetch(`/api/watch-party/${code}`).then((r) => r.json()).then((d) => {
+          if (!d.room) return;
           updateMembers((prev) => {
             const merged = new Map<string, Member>();
             prev.forEach((m) => merged.set(m.name, m));
-            (d.room.members as Member[]).forEach((m) => {
+            (d.room.members as Member[]).forEach((m: Member) => {
               const existing = merged.get(m.name);
               if (existing) {
                 merged.set(m.name, { ...existing, peerId: m.peerId || existing.peerId, isHost: m.isHost || existing.isHost });
@@ -531,13 +561,12 @@ function RoomInner({ code }: { code: string }) {
             });
             return Array.from(merged.values());
           });
-          if (d.room.contentUrl) {
+          if (d.room.contentUrl && !stateRef.current.contentUrl) {
             setContentUrl(d.room.contentUrl);
             setContentType(d.room.contentType || detectContentType(d.room.contentUrl));
           }
-          d.room.members.forEach((m: Member) => { if (m.peerId && m.peerId !== myId) dialPeer(m.peerId); });
-        }
-        broadcast({ type: "member-join", name: userName, peerId: myId, isHost });
+          d.room.members.forEach((m: Member) => { if (m.peerId && m.peerId !== myId && !dataConns.current.has(m.peerId)) dialPeer(m.peerId); });
+        }).catch(() => {});
       });
 
       peer.on("connection", (c) => wireData(c));
