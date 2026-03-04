@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Peer, { DataConnection, MediaConnection } from "peerjs";
 
@@ -46,6 +46,20 @@ function detectContentType(url: string): "youtube" | "video" | "iframe" {
 }
 
 export default function WatchPartyRoom({ code }: { code: string }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen flex items-center justify-center bg-[#0a0a0a] text-gray-500">
+          Loading room...
+        </div>
+      }
+    >
+      <WatchPartyRoomInner code={code} />
+    </Suspense>
+  );
+}
+
+function WatchPartyRoomInner({ code }: { code: string }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const userName = searchParams.get("name") || "Guest";

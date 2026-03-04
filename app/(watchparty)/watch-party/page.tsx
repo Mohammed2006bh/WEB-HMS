@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
-export default function WatchPartyLanding() {
+function WatchPartyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<"idle" | "create" | "join">("idle");
@@ -158,5 +158,19 @@ export default function WatchPartyLanding() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function WatchPartyLanding() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
+          <div className="text-gray-500">Loading...</div>
+        </main>
+      }
+    >
+      <WatchPartyContent />
+    </Suspense>
   );
 }
