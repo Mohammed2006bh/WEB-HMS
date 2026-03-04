@@ -1,7 +1,7 @@
 import "@/app/globals.css";
 
 export const metadata = {
-  title: "Watch Party",
+  title: "M-Party",
 };
 
 export default function WatchPartyLayout({

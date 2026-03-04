@@ -66,7 +66,7 @@ function WatchPartyContent() {
             boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
           }}
         >
-          <h1 className="text-4xl font-bold text-white mb-2">Watch Party</h1>
+          <h1 className="text-4xl font-bold text-white mb-2">M-Party</h1>
           <p className="text-gray-400 mb-8 text-sm">
             Watch together, talk together
           </p>

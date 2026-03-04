@@ -20,14 +20,36 @@ export default function Home() {
 
 
       <SBody>
-        <section className="mb-8">
-          <h2 className="text-2xl font-semibold mb-2">Let's start a party 🎉 <br /> 
-            <span className="text-sm text-gray-400">🎉🎉🎉</span><br />
-            <nav className="flex gap-2">
-                navLink("/", "Home")
-            </nav>
-            </h2>
-        </section>
+        <div className="max-w-3xl mx-auto p-8">
+          <a
+            href="/watch-party"
+            className="group block rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+            style={{
+              background: "linear-gradient(135deg, rgba(76,175,80,0.15), rgba(76,175,80,0.05))",
+              border: "1px solid rgba(76,175,80,0.25)",
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-[#4CAF50]/20 flex items-center justify-center shrink-0">
+                <svg className="w-6 h-6 text-[#4CAF50]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <h3 className="text-xl font-bold text-white group-hover:text-[#4CAF50] transition-colors">
+                  M-Party
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Watch together, talk together — create a room and enjoy synced content with friends
+                </p>
+              </div>
+              <svg className="w-5 h-5 text-gray-500 group-hover:text-[#4CAF50] group-hover:translate-x-1 transition-all ml-auto shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </div>
+          </a>
+        </div>
       </SBody>
 
 
