@@ -115,6 +115,7 @@ function RoomInner({ code }: { code: string }) {
   const [readyNames, setReadyNames] = useState<Set<string>>(new Set());
   const [activeReq, setActiveReq] = useState<ControlReq | null>(null);
   const [reqCountdown, setReqCountdown] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const peerRef = useRef<Peer | null>(null);
   const dataConns = useRef<Map<string, DataConnection>>(new Map());
@@ -437,17 +438,22 @@ function RoomInner({ code }: { code: string }) {
     el.srcObject = stream;
     el.autoplay = true;
     el.setAttribute("playsinline", "true");
+    el.setAttribute("webkit-playsinline", "true");
     el.volume = 1;
     el.style.cssText = "position:absolute;left:-9999px;";
     if (selectedDeviceRef.current && "setSinkId" in el) {
       (el as HTMLAudioElement & { setSinkId: (id: string) => Promise<void> }).setSinkId(selectedDeviceRef.current).catch(() => {});
     }
     document.body.appendChild(el);
-    el.play().catch(() => {
-      const resume = () => { el.play().catch(() => {}); };
-      document.addEventListener("click", resume, { once: true });
-      document.addEventListener("touchstart", resume, { once: true });
-    });
+    const tryPlay = () => {
+      el.play().catch(() => {
+        const resume = () => { el.play().catch(() => {}); document.removeEventListener("click", resume); document.removeEventListener("touchstart", resume); };
+        document.addEventListener("click", resume, { once: true });
+        document.addEventListener("touchstart", resume, { once: true });
+      });
+    };
+    tryPlay();
+    setTimeout(tryPlay, 300);
   }
 
   function dialPeer(remotePeerId: string) {
@@ -477,7 +483,13 @@ function RoomInner({ code }: { code: string }) {
         const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         s.getAudioTracks().forEach((t) => (t.enabled = false));
         localStream.current = s;
-      } catch { setMicError("Mic access denied"); }
+      } catch {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+          s.getAudioTracks().forEach((t) => (t.enabled = false));
+          localStream.current = s;
+        } catch { setMicError("Mic access denied"); }
+      }
 
       const peer = new Peer({
         config: {
@@ -501,7 +513,19 @@ function RoomInner({ code }: { code: string }) {
         const res = await fetch(`/api/watch-party/${code}`);
         const d = await res.json();
         if (d.room) {
-          updateMembers(() => d.room.members);
+          updateMembers((prev) => {
+            const merged = new Map<string, Member>();
+            prev.forEach((m) => merged.set(m.name, m));
+            (d.room.members as Member[]).forEach((m) => {
+              const existing = merged.get(m.name);
+              if (existing) {
+                merged.set(m.name, { ...existing, peerId: m.peerId || existing.peerId, isHost: m.isHost || existing.isHost });
+              } else {
+                merged.set(m.name, { ...m, status: "connecting", signal: 0 });
+              }
+            });
+            return Array.from(merged.values());
+          });
           if (d.room.contentUrl) {
             setContentUrl(d.room.contentUrl);
             setContentType(d.room.contentType || detectContentType(d.room.contentUrl));
@@ -513,9 +537,21 @@ function RoomInner({ code }: { code: string }) {
 
       peer.on("connection", (c) => wireData(c));
       peer.on("call", (call) => {
-        call.answer(localStream.current || new MediaStream());
+        const stream = localStream.current || new MediaStream();
+        call.answer(stream);
         call.on("stream", (s) => playRemoteStream(call.peer, s));
         mediaConns.current.set(call.peer, call);
+        if (!localStream.current) {
+          const checkStream = setInterval(() => {
+            if (localStream.current) {
+              clearInterval(checkStream);
+              const mc = peer.call(call.peer, localStream.current);
+              mc.on("stream", (s) => playRemoteStream(call.peer, s));
+              mediaConns.current.set(call.peer, mc);
+            }
+          }, 500);
+          setTimeout(() => clearInterval(checkStream), 10000);
+        }
       });
       peer.on("error", (e) => console.error("Peer:", e.type, e));
     })();
@@ -632,7 +668,7 @@ function RoomInner({ code }: { code: string }) {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-[#0a0a0a] text-white overflow-hidden relative">
+    <div className="h-[100dvh] flex flex-col bg-[#0a0a0a] text-white overflow-hidden relative">
       {emojiBlasts.map((b) => (
         <div key={b.id} className="fixed pointer-events-none z-50 animate-emoji-rise" style={{ left: `${b.x}%`, bottom: "10%" }}>
           <div className="flex flex-col items-center">
@@ -643,7 +679,7 @@ function RoomInner({ code }: { code: string }) {
       ))}
 
       {(syncPhase === "prebuffer" || syncPhase === "countdown") && (
-        <div className="fixed inset-0 z-40 bg-black/80 flex items-center justify-center backdrop-blur-sm">
+        <div className="fixed inset-0 z-40 bg-black/90 flex items-center justify-center">
           <div className="text-center">
             {syncPhase === "prebuffer" && (
               <>
@@ -704,15 +740,20 @@ function RoomInner({ code }: { code: string }) {
       )}
 
       {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-black/50 backdrop-blur shrink-0">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${connected ? "bg-[#4CAF50]" : "bg-red-500"}`} />
-          <span className="font-mono text-lg tracking-wider">{code}</span>
-          <button onClick={copyCode} className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">{copiedWhat === "code" ? "Copied!" : "Copy Code"}</button>
-          <button onClick={copyLink} className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">{copiedWhat === "link" ? "Copied!" : "Copy Link"}</button>
-          {isHost && <span className="text-xs px-2 py-0.5 rounded bg-[#4CAF50]/20 text-[#4CAF50]">Host</span>}
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-white/10 bg-black/50 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto">
+          <div className={`w-2 h-2 rounded-full shrink-0 ${connected ? "bg-[#4CAF50]" : "bg-red-500"}`} />
+          <span className="font-mono text-sm sm:text-lg tracking-wider shrink-0">{code}</span>
+          <button onClick={copyCode} className="text-[10px] sm:text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors shrink-0">{copiedWhat === "code" ? "Copied!" : "Copy Code"}</button>
+          <button onClick={copyLink} className="text-[10px] sm:text-xs px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors shrink-0">{copiedWhat === "link" ? "Copied!" : "Copy Link"}</button>
+          {isHost && <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-[#4CAF50]/20 text-[#4CAF50] shrink-0">Host</span>}
         </div>
-        <button onClick={leaveRoom} className="text-sm px-4 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">Leave</button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="lg:hidden text-sm p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-colors">
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </button>
+          <button onClick={leaveRoom} className="text-xs sm:text-sm px-3 sm:px-4 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">Leave</button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -762,7 +803,7 @@ function RoomInner({ code }: { code: string }) {
           )}
 
           {/* Voice Bar */}
-          <div className="flex items-center gap-2 px-4 py-2 border-t border-white/10 bg-black/50 backdrop-blur shrink-0">
+          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-t border-white/10 bg-black/50 shrink-0 flex-wrap">
             <button onClick={toggleMute} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${muted ? "bg-red-500/20 text-red-400 hover:bg-red-500/30" : "bg-[#4CAF50]/20 text-[#4CAF50] hover:bg-[#4CAF50]/30"}`}>
               <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -813,7 +854,8 @@ function RoomInner({ code }: { code: string }) {
         </div>
 
         {/* Sidebar */}
-        <div className="w-72 border-l border-white/10 flex flex-col bg-black/30 shrink-0">
+        {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+        <div className={`${sidebarOpen ? "fixed inset-y-0 right-0 z-40" : "hidden"} lg:static lg:flex w-72 border-l border-white/10 flex flex-col bg-[#0a0a0a] lg:bg-black/30 shrink-0`}>
           <div className="px-3 py-2.5 border-b border-white/10">
             <h3 className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Members ({members.length})</h3>
             <div className="flex flex-col gap-1">
