@@ -40,17 +40,18 @@ function WatchPartyContent() {
     }
   };
 
-  const handleJoin = () => {
+  const handleJoin = async () => {
     if (!name.trim()) return setError("Enter your name");
     if (!roomCode.trim()) return setError("Enter room code");
     const c = roomCode.trim().toUpperCase();
     const n = name.trim();
-    router.push(`/watch-party/${c}?name=${encodeURIComponent(n)}`);
     fetch("/api/watch-party/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code: c, name: n }),
     }).catch(() => {});
+    await new Promise((r) => setTimeout(r, 150));
+    router.push(`/watch-party/${c}?name=${encodeURIComponent(n)}`);
   };
 
   return (

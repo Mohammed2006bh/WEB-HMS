@@ -239,7 +239,7 @@ function RoomInner({ code }: { code: string }) {
       videoEl.current.currentTime = 0;
       videoEl.current.play();
     }
-    prebufferTimerRef.current = setTimeout(() => finishPrebuffer(), 30000);
+    prebufferTimerRef.current = setTimeout(() => finishPrebuffer(), 15000);
   }
 
   function finishPrebuffer() {
@@ -409,6 +409,12 @@ function RoomInner({ code }: { code: string }) {
   useEffect(() => {
     let dead = false;
     (async () => {
+      fetch("/api/watch-party/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name: userName }),
+      }).catch(() => {});
+
       try {
         const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         s.getAudioTracks().forEach((t) => (t.enabled = false));
@@ -563,14 +569,19 @@ function RoomInner({ code }: { code: string }) {
               <>
                 <div className="w-12 h-12 border-4 border-[#4CAF50] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                 <p className="text-xl font-semibold mb-2">Buffering...</p>
-                <p className="text-gray-400 text-sm mb-4">Pre-loading content for sync</p>
-                <div className="flex flex-wrap justify-center gap-2">
+                <p className="text-gray-400 text-sm mb-4">Pre-loading content for sync (15s)</p>
+                <div className="flex flex-wrap justify-center gap-2 mb-4">
                   {members.map((m) => (
                     <span key={m.name} className={`text-xs px-2.5 py-1 rounded-full ${readyNames.has(m.name) ? "bg-[#4CAF50]/20 text-[#4CAF50]" : "bg-white/5 text-gray-500"}`}>
                       {readyNames.has(m.name) ? "Ready" : "Loading"} - {m.name}
                     </span>
                   ))}
                 </div>
+                {isHost && (
+                  <button onClick={() => finishPrebuffer()} className="mt-2 px-6 py-2 rounded-xl text-sm font-medium bg-white/10 text-white hover:bg-white/20 transition-colors border border-white/10">
+                    Skip Buffer
+                  </button>
+                )}
               </>
             )}
             {syncPhase === "countdown" && (
