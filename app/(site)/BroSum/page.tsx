@@ -37,6 +37,9 @@ const art = {
     {
       name: "Bro Sword",
       url: "/MyART/Sword.png",
+    },{
+      name: "Purple-pink Life",
+      url: "/MyART/Purple-pink_Life.png",
     },
   ]
 };
