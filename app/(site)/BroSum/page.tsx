@@ -4,7 +4,7 @@ import FileExplorer from "@/app/components/FileExplorer";
 import SBody from "@/app/components/SBody";
 import { useState } from "react";
 
-
+{/* add things here */}
 const notes = {
   "ITCE101": [
     {
@@ -40,7 +40,14 @@ const art = {
     },{
       name: "Purple-pink Life",
       url: "/MyART/Purple-pink_Life.png",
+    },{
+      name: "Cartoon Character",
+      url: "/MyART/Cartoon_Character.png",
+    },{
+      name: "Unknowen street",
+      url: "/MyART/Unknowen_street.png",
     },
+    
   ]
 };
 
