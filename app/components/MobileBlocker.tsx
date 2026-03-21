@@ -191,31 +191,6 @@ export default function MobileBlocker() {
   };
   
 
-  // ================= MOBILE WARNING =================
-  if (!bypass && !matchResult && isMobile) {
-    return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center 
-                      bg-black/95 text-white backdrop-blur-md">
-        <div className="bg-black border border-red-500 p-8 rounded-xl text-center max-w-sm">
-          <h1 className="text-lg text-red-400 mb-4">
-            Mobile Display Warning
-          </h1>
-          <p className="text-sm mb-6">
-            This website is optimized for desktop view.
-            Please use a laptop or enable desktop mode.
-          </p>
-          <button
-            onClick={() => setBypass(true)}
-            className="border border-green-500 px-4 py-2 rounded-lg 
-                       hover:bg-green-500 hover:text-black transition-all"
-          >
-            Continue Anyway →
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   // ================= SIGNATURE FLOW =================
   if (!bypass && matchResult) {
     return (

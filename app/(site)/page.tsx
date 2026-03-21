@@ -6,8 +6,8 @@ export default function Home() {
     <>
 
       {/* Hero / Typed text */}
-      <section className="text-center mt-16">
-        <h1 className="text-5xl font-bold">
+      <section className="text-center mt-8 sm:mt-16 px-4">
+        <h1 className="text-3xl sm:text-5xl font-bold">
           I am <TypingText />
         </h1>
         <h3 className="text-blue-400">↣ Software Engineer ↢</h3>
@@ -19,10 +19,10 @@ export default function Home() {
       </section>
 
 
-        <div className="max-w-3xl mx-auto p-8">
+        <div className="max-w-3xl mx-auto p-4 sm:p-8">
           <a
             href="/watch-party"
-            className="group block rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+            className="group block rounded-2xl p-4 sm:p-6 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
             style={{
               background: "linear-gradient(135deg, rgba(76,175,80,0.15), rgba(76,175,80,0.05))",
               border: "1px solid rgba(76,175,80,0.25)",
@@ -57,7 +57,7 @@ export default function Home() {
       {/* Main content */}
 
       <SBody>
-      <main className="max-w-3xl mx-auto p-8">
+      <main className="max-w-3xl mx-auto p-4 sm:p-8">
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-2">Keep up with Bro latest things</h2>
         </section>
@@ -79,9 +79,8 @@ export default function Home() {
 
 
 
-
       <SBody>
-      <main className="max-w-3xl mx-auto p-8">
+      <main className="max-w-3xl mx-auto p-4 sm:p-8">
         <section className="mb-8">
           <h2 className="text-2xl font-semibold mb-2">Projects</h2>
         </section>

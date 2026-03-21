@@ -56,8 +56,14 @@ body.dark {
   color: white;
   padding: 15px;
   border-radius: 14px;
-  margin: 40px 55px 20px;
+  margin: 40px 16px 20px;
   text-align: center;
+}
+
+@media (min-width: 640px) {
+  .site-footer {
+    margin: 40px 55px 20px;
+  }
 }
 
 
