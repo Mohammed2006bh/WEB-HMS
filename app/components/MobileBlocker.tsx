@@ -140,49 +140,45 @@ export default function MobileBlocker() {
   // ================= HEART OVERLAY =================
   const HeartOverlay = () => {
     const [messages, setMessages] = useState<string[]>([]);
-    const [hovered, setHovered] = useState(false);
+    const [open, setOpen] = useState(false);
     const [randomMessage, setRandomMessage] = useState("");
   
     useEffect(() => {
       fetch("/messages.csv")
         .then((res) => res.text())
         .then((text) => {
-          const rows = text.split("\n").slice(1); // skip header
+          const rows = text.split("\n").slice(1);
           const cleaned = rows
             .map((row) => row.trim())
             .filter((row) => row.length > 0);
           setMessages(cleaned);
         });
     }, []);
-  
-    const handleHover = () => {
-      if (messages.length > 0) {
-        const random =
-          messages[Math.floor(Math.random() * messages.length)];
+
+    const handleToggle = () => {
+      if (!open && messages.length > 0) {
+        const random = messages[Math.floor(Math.random() * messages.length)];
         setRandomMessage(random);
       }
-      setHovered(true);
+      setOpen((prev) => !prev);
     };
   
     return (
-      <div
-        className="fixed bottom-6 right-6 z-[9998]"
-        onMouseEnter={handleHover}
-        onMouseLeave={() => setHovered(false)}
-      >
+      <div className="fixed bottom-6 right-4 sm:right-6 z-[9998]">
         {/* Message Bubble */}
-        {hovered && randomMessage && (
-          <div className="absolute bottom-16 right-0 w-64 bg-black/90 border border-green-500 p-4 rounded-lg text-sm text-green-300 shadow-[0_0_15px_#22c55e] animate-fadeIn">
+        {open && randomMessage && (
+          <div className="absolute bottom-16 right-0 w-[min(16rem,calc(100vw-2rem))] bg-black/90 border border-green-500 p-4 rounded-lg text-sm text-green-300 shadow-[0_0_15px_#22c55e] animate-fadeIn">
             {randomMessage}
           </div>
         )}
   
         {/* Heart */}
         <div
+          onClick={handleToggle}
           className="w-12 h-12 rounded-full bg-green-500/20 backdrop-blur-md 
                      flex items-center justify-center 
                      shadow-[0_0_20px_#22c55e] 
-                     animate-heartPulse cursor-pointer"
+                     animate-heartPulse cursor-pointer select-none"
         >
           <span className="text-green-400 text-xl">💚</span>
         </div>
@@ -191,14 +187,39 @@ export default function MobileBlocker() {
   };
   
 
+  // ================= MOBILE WARNING =================
+  if (!bypass && !matchResult && isMobile) {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center 
+                      bg-black/95 text-white backdrop-blur-md">
+        <div className="bg-black border border-red-500 p-8 rounded-xl text-center max-w-sm">
+          <h1 className="text-lg text-red-400 mb-4">
+            Mobile Display Warning
+          </h1>
+          <p className="text-sm mb-6">
+            This website is optimized for desktop view.
+            Please use a laptop or enable desktop mode.
+          </p>
+          <button
+            onClick={() => setBypass(true)}
+            className="border border-green-500 px-4 py-2 rounded-lg 
+                       hover:bg-green-500 hover:text-black transition-all"
+          >
+            Continue Anyway →
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ================= SIGNATURE FLOW =================
   if (!bypass && matchResult) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center 
-                      text-green-400 font-mono overflow-hidden
+                      text-green-400 font-mono overflow-hidden px-4
                       bg-black/95 backdrop-blur-md animate-overlayFade">
 
-        <div className="relative bg-black/90 border border-green-500 p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
+        <div className="relative bg-black/90 border border-green-500 p-5 sm:p-8 rounded-2xl shadow-2xl max-w-md w-full text-center">
 
           <h1 className="text-xl mb-4 tracking-widest">
             HMS M-ACCESS v8
@@ -206,7 +227,7 @@ export default function MobileBlocker() {
 
           {!confirmed && (
             <>
-              <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-4">
+              <div className="border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg mb-4 text-sm sm:text-base">
                 Mohamed Device Signature Detected ✔
               </div>
 
@@ -269,9 +290,9 @@ export default function MobileBlocker() {
                     setBypass(true);
                     setShowHeart(true);
                   }}
-                  className="mt-6 border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg shadow-[0_0_20px_#22c55e]"
+                  className="mt-6 border border-green-500 bg-green-500 text-black px-4 py-2 rounded-lg shadow-[0_0_20px_#22c55e] text-sm leading-snug"
                 >
-                  You're Using The Same Device That I Use →
+                  Same Device Confirmed →
                 </button>
               )}
             </>
