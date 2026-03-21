@@ -155,6 +155,19 @@ export default function MobileBlocker() {
         });
     }, []);
 
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const random = prev[Math.floor(Math.random() * prev.length)];
+          setRandomMessage(random);
+          setOpen(true);
+          return prev;
+        });
+      }, 43000);
+      return () => clearInterval(interval);
+    }, []);
+
     const handleToggle = () => {
       if (!open && messages.length > 0) {
         const random = messages[Math.floor(Math.random() * messages.length)];
@@ -302,5 +315,5 @@ export default function MobileBlocker() {
     );
   }
 
-  return <>{showHeart && <HeartOverlay />}</>;
+  return <HeartOverlay />;
 }

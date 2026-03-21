@@ -36,7 +36,7 @@ export default function Home() {
                 </svg>
               </div>
               <div className="text-left">
-                <h3 className="text-xl font-bold text-white group-hover:text-[#4CAF50] transition-colors">
+                <h3 className="text-xl font-bold text-blue-400 group-hover:text-[#4CAF50] transition-colors">
                   M-Party
                 </h3>
                 <p className="text-sm text-gray-400">
