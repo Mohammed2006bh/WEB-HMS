@@ -29,6 +29,12 @@ const notes = {
       name: "Limits Summary",
       url: "/Mynotes/IBMZOS/IBMZOS.pdf",
     },
+  ],
+  "Software Scenarios": [
+    {
+      name: "SE201 Artmne",
+      url: "/Mynotes/Software_Scenarios/SE201project.pdf",
+    },
   ]
 };
 
