@@ -35,6 +35,12 @@ const notes = {
       name: "SE201 Artmne",
       url: "/Mynotes/Software_Scenarios/SE201project.pdf",
     },
+  ],
+  "Publication": [
+    {
+      name: "Publication 101 Resarch",
+      url: "/Mynotes/Publication/The Impact of AI Data Centers on Electricity and Water Sustainability in Bahrain.pdf",
+    },
   ]
 };
 
